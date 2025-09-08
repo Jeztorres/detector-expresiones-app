@@ -151,15 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
         bocaAbiertaState = false;
       }
 
-      // --- HUD de diagnóstico ---
-      if (umbralCierre && umbralApertura) {
-        canvasCtx.font = "16px Arial";
-        canvasCtx.fillStyle = "lime";
-        canvasCtx.fillText(`EAR abierto p95: ${earAbiertoCalibrado.toFixed(3)}`, 10, 30);
-        canvasCtx.fillText(`Umbral cierre:  ${umbralCierre.toFixed(3)}`, 10, 55);
-        canvasCtx.fillText(`Umbral apertura:${umbralApertura.toFixed(3)}`, 10, 80);
-        canvasCtx.fillText(`EAR (EMA):      ${earEma.toFixed(3)}`, 10, 105);
-      }
     }
   }
 
