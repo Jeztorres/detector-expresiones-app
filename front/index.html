@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Detección de Gestos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family: system-ui, Arial; margin:0; padding:16px; background:#0b0f14; color:#e8eef5}
+    .row{display:flex; gap:16px; flex-wrap:wrap}
+    video, canvas{border-radius:12px; max-width:100%}
+    .card{background:#111823; padding:16px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.4)}
+    .kpi{font-size:14px; opacity:.85}
+    .kpi b{font-size:24px}
+    #status{margin-top:8px; color:#9ad1ff}
+  </style>
+
+  <!-- MediaPipe Face Mesh & drawing utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <!-- OpenCV.js (opcional, solo para filtro gris de ejemplo) -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;"></script>
+  <script>var cvReady=false;</script>
+</head>
+<body>
+  <h1>Detección de Gestos</h1>
+
+  <div class="row">
+    <div class="card">
+      <video id="video" playsinline style="width:640px;height:480px;"></video>
+      <div id="status">Inicializando cámara…</div>
+    </div>
+    <div class="card">
+      <canvas id="canvasOutput" width="640" height="480"></canvas>
+      <div class="kpi">Parpadeos: <b id="parpadeo-counter">0</b></div>
+      <div class="kpi">Cejas arqueadas: <b id="ceja-counter">0</b></div>
+      <div class="kpi">Bocas abiertas: <b id="boca-counter">0</b></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
