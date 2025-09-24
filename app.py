@@ -36,12 +36,19 @@ def create_app():
 
     @app.route("/")
     def index():
-        return send_from_directory(FRONT_DIR, "index.html")
+        return send_from_directory(".", "index.html")
     
     # Rutas para servir archivos estáticos del frontend
+    @app.route("/front/<path:filename>")
+    def serve_front_files(filename):
+        return send_from_directory(FRONT_DIR, filename)
+    
     @app.route("/<path:filename>")
     def serve_static_files(filename):
-        return send_from_directory(FRONT_DIR, filename)
+        # Evitar conflictos con las rutas de la API
+        if filename.startswith('api/'):
+            return "Not Found", 404
+        return send_from_directory(".", filename)
 
     app.register_blueprint(gestos_bp)
     app.register_blueprint(bp_stats)

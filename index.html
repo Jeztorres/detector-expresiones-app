@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Detector de Expresiones Faciales</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Aplicación web para detección de gestos faciales en tiempo real usando MediaPipe">
+  <style>
+    body{font-family: system-ui, Arial; margin:0; padding:16px; background:#0b0f14; color:#e8eef5}
+    .header{text-align:center; margin-bottom:32px}
+    .header h1{color:#58a6ff; margin-bottom:8px}
+    .header p{opacity:0.8; margin:0}
+    .row{display:flex; gap:16px; flex-wrap:wrap; justify-content:center}
+    video, canvas{border-radius:12px; max-width:100%; border:2px solid #30363d}
+    .card{background:#161b22; padding:20px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.4); border:1px solid #30363d}
+    .kpi{font-size:14px; opacity:.85; margin:8px 0}
+    .kpi b{font-size:24px; color:#58a6ff}
+    #status{margin-top:12px; color:#9ad1ff; font-weight:500}
+    .footer{text-align:center; margin-top:32px; opacity:0.7; font-size:14px}
+    .github-link{color:#58a6ff; text-decoration:none}
+    .github-link:hover{text-decoration:underline}
+  </style>
+
+  <!-- MediaPipe Face Mesh & drawing utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <!-- OpenCV.js (opcional, solo para filtro gris de ejemplo) -->
+  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;"></script>
+  <script>var cvReady=false;</script>
+</head>
+<body>
+  <div class="header">
+    <h1>🎯 Detector de Expresiones Faciales</h1>
+    <p>Detección en tiempo real de gestos faciales usando MediaPipe e IA</p>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h3 style="margin-top:0; color:#58a6ff">📹 Cámara en Vivo</h3>
+      <video id="video" playsinline style="width:640px;height:480px;"></video>
+      <div id="status">🔄 Inicializando cámara…</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0; color:#58a6ff">🔍 Detección de Gestos</h3>
+      <canvas id="canvasOutput" width="640" height="480"></canvas>
+      <div class="kpi">👁️ Parpadeos: <b id="parpadeo-counter">0</b></div>
+      <div class="kpi">🤨 Cejas arqueadas: <b id="ceja-counter">0</b></div>
+      <div class="kpi">👄 Bocas abiertas: <b id="boca-counter">0</b></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>
+      Desarrollado con ❤️ usando Flask, MediaPipe y MySQL | 
+      <a href="https://github.com/Jeztorres/detector-expresiones-app" class="github-link" target="_blank">
+        Ver en GitHub
+      </a>
+    </p>
+  </div>
+
+  <script src="front/app.js"></script>
+</body>
+</html>

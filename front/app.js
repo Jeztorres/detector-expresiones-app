@@ -1,5 +1,5 @@
 // --- CONFIG API (endpoint del backend Flask) ---
-const ENDPOINT_GESTOS = "https://jeztorres.github.io/detector-expresiones-app/api/gestos";
+const ENDPOINT_GESTOS = "http://127.0.0.1:5000/api/gestos";
 
 document.addEventListener("DOMContentLoaded", () => {
   const videoElement = document.getElementById('video');
