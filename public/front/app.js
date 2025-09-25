@@ -13,6 +13,84 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let cejaCount = 0, bocaCount = 0, parpadeoCount = 0;
 
+  // Verificar si las librerías están disponibles
+  if (typeof Camera === 'undefined') {
+    status.textContent = "❌ Error: Librería Camera no cargada";
+    console.error("MediaPipe Camera utils no está disponible");
+    return;
+  }
+
+  if (typeof FaceMesh === 'undefined') {
+    status.textContent = "❌ Error: Librería FaceMesh no cargada";
+    console.error("MediaPipe FaceMesh no está disponible");
+    return;
+  }
+
+  console.log("✅ Librerías MediaPipe cargadas correctamente");
+  status.textContent = "🔄 Inicializando detección facial...";
+
+  // Verificar si estamos en HTTPS o localhost
+  function checkSecureContext() {
+    const isSecure = window.location.protocol === 'https:' || 
+                    window.location.hostname === 'localhost' || 
+                    window.location.hostname === '127.0.0.1';
+    
+    if (!isSecure) {
+      console.warn("⚠️ Conexión no segura detectada. Algunos navegadores requieren HTTPS para la cámara.");
+      // No lanzar error, solo advertir
+    }
+    
+    return isSecure;
+  }
+
+  // Función para verificar permisos de cámara
+  async function checkCameraPermissions() {
+    try {
+      // Verificar contexto seguro
+      const isSecure = checkSecureContext();
+      if (!isSecure) {
+        console.log("⚠️ Conexión HTTP detectada - algunos navegadores pueden bloquear la cámara");
+      }
+
+      // Verificar si el navegador soporta getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Este navegador no soporta acceso a cámara. Usa Chrome, Firefox o Edge.");
+      }
+
+      console.log("🔍 Verificando permisos de cámara...");
+      status.textContent = "🔍 Verificando permisos de cámara...";
+
+      // Verificar permisos usando la nueva API
+      if ('permissions' in navigator) {
+        const permission = await navigator.permissions.query({name: 'camera'});
+        console.log("Estado de permisos:", permission.state);
+        
+        if (permission.state === 'denied') {
+          throw new Error("Permisos de cámara denegados permanentemente. Ve a Configuración → Privacidad y activa la cámara.");
+        }
+      }
+
+      // Intentar obtener acceso a la cámara directamente
+      console.log("🎥 Solicitando acceso a la cámara...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
+          facingMode: 'user' // Cámara frontal preferida
+        }
+      });
+      
+      // Detener el stream temporal
+      stream.getTracks().forEach(track => track.stop());
+      console.log("✅ Permisos de cámara verificados");
+      return true;
+      
+    } catch (error) {
+      console.error("❌ Error verificando permisos:", error);
+      throw error;
+    }
+  }
+
   // ======= ESTADOS ACTUALES =======
   let estadoBoca = "cerrada";   // 'abierta' | 'cerrada'
   let estadoCejas = "normal";   // 'arqueadas' | 'normal'
@@ -45,29 +123,23 @@ document.addEventListener("DOMContentLoaded", () => {
     frameCounter++;
     canvasCtx.save();
 
-    // Dibujo base (OpenCV si está listo)
-    if (typeof cvReady !== "undefined" && cvReady) {
-      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-      let src = cv.imread(canvasElement);
-      let gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-      cv.imshow(canvasElement, gray);
-      src.delete(); gray.delete();
-    } else {
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-    }
+    // Limpiar canvas y dibujar imagen a color (calibrada al mismo tamaño)
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
+    // Dibujar los landmarks de detección facial si hay rostros
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
       const lm = results.multiFaceLandmarks[0];
 
-      drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, { color: '#C0C0C070', lineWidth: 1 });
-      drawConnectors(canvasCtx, lm, FACEMESH_RIGHT_EYE, { color: '#FF3030' });
-      drawConnectors(canvasCtx, lm, FACEMESH_LEFT_EYE, { color: '#30FF30' });
-      drawConnectors(canvasCtx, lm, FACEMESH_LIPS, { color: '#E0E0E0' });
+      // Dibujar malla facial con colores más visibles sobre video a color
+      drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, { color: '#00FF0040', lineWidth: 1 });
+      drawConnectors(canvasCtx, lm, FACEMESH_RIGHT_EYE, { color: '#FF0000', lineWidth: 2 });
+      drawConnectors(canvasCtx, lm, FACEMESH_LEFT_EYE, { color: '#00FF00', lineWidth: 2 });
+      drawConnectors(canvasCtx, lm, FACEMESH_LIPS, { color: '#FFD700', lineWidth: 2 });
 
       detectarEstados(lm);
     }
+    
     canvasCtx.restore();
   }
 
@@ -167,27 +239,94 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ======= Inicializar MediaPipe + Cámara =======
-  const faceMesh = new FaceMesh({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-  });
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-  faceMesh.onResults(onResults);
+  // Inicialización principal
+  async function initializeCamera() {
+    try {
+      // Verificar permisos primero
+      await checkCameraPermissions();
+      
+      console.log("🚀 Iniciando FaceMesh...");
+      status.textContent = "🚀 Iniciando detección facial...";
 
-  const camera = new Camera(videoElement, {
-    onFrame: async () => { await faceMesh.send({ image: videoElement }); },
-    width: 640, height: 480
-  });
+      const faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+      });
+      
+      faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      
+      faceMesh.onResults(onResults);
 
-  camera.start().then(() => {
-    status.textContent = "Cámara inicializada ✅";
-  }).catch(err => {
-    console.error("No se pudo iniciar la cámara:", err);
-    status.textContent = "Permite el acceso a la cámara en el navegador.";
-    alert("Activa los permisos de cámara (candado en la barra de direcciones).");
-  });
+      console.log("📹 Iniciando cámara...");
+      status.textContent = "📹 Iniciando cámara...";
+
+      const camera = new Camera(videoElement, {
+        onFrame: async () => { 
+          try {
+            await faceMesh.send({ image: videoElement }); 
+          } catch (error) {
+            console.error("Error procesando frame:", error);
+          }
+        },
+        width: 640, 
+        height: 480,
+        facingMode: 'user' // Cámara frontal
+      });
+
+      await camera.start();
+      console.log("✅ Cámara inicializada exitosamente");
+      status.textContent = "📹 Cámara activa - Detectando gestos...";
+      status.style.color = "#9ad1ff";
+      
+    } catch (error) {
+      handleCameraError(error);
+    }
+  }
+
+  function handleCameraError(err) {
+    console.error("❌ Error al inicializar la cámara:", err);
+    
+    let mensaje = "❌ Error de cámara: ";
+    if (err.name === 'NotAllowedError' || err.message.includes('denegado')) {
+      mensaje += "Permisos denegados. Haz clic en el 🔒 y permite la cámara.";
+    } else if (err.name === 'NotFoundError') {
+      mensaje += "No se encontró cámara. Verifica que esté conectada.";
+    } else if (err.name === 'NotReadableError') {
+      mensaje += "Cámara en uso por otra aplicación. Cierra otras apps de video.";
+    } else if (err.name === 'NotSupportedError') {
+      mensaje += "Navegador no soporta acceso a cámara. Usa Chrome/Firefox.";
+    } else if (err.message.includes('navegador no soporta')) {
+      mensaje += "Navegador no compatible. Usa Chrome, Firefox o Edge.";
+    } else {
+      mensaje += err.message || "Error desconocido.";
+    }
+    
+    status.textContent = mensaje;
+    status.style.color = "#ff6b6b";
+    
+    // Mostrar botón para reintentar
+    const retryBtn = document.createElement('button');
+    retryBtn.textContent = "🔄 Reintentar";
+    retryBtn.style.marginLeft = "10px";
+    retryBtn.style.padding = "5px 10px";
+    retryBtn.style.backgroundColor = "#58a6ff";
+    retryBtn.style.color = "white";
+    retryBtn.style.border = "none";
+    retryBtn.style.borderRadius = "4px";
+    retryBtn.style.cursor = "pointer";
+    
+    retryBtn.onclick = () => {
+      status.innerHTML = "🔄 Reiniciando...";
+      setTimeout(() => location.reload(), 500);
+    };
+    
+    status.appendChild(retryBtn);
+  }
+
+  // Iniciar la aplicación
+  initializeCamera();
 });

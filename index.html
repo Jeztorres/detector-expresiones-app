@@ -11,7 +11,7 @@
     .header h1{color:#58a6ff; margin-bottom:8px}
     .header p{opacity:0.8; margin:0}
     .row{display:flex; gap:16px; flex-wrap:wrap; justify-content:center}
-    video, canvas{border-radius:12px; max-width:100%; border:2px solid #30363d}
+    video, canvas{border-radius:12px; max-width:100%; border:2px solid #30363d; width:640px; height:480px; object-fit:cover}
     .card{background:#161b22; padding:20px; border-radius:12px; box-shadow:0 8px 32px rgba(0,0,0,.4); border:1px solid #30363d}
     .kpi{font-size:14px; opacity:.85; margin:8px 0}
     .kpi b{font-size:24px; color:#58a6ff}
@@ -25,9 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-  <!-- OpenCV.js (opcional, solo para filtro gris de ejemplo) -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;"></script>
-  <script>var cvReady=false;</script>
+  <!-- OpenCV.js removido - ya no necesario para mantener video a color -->
 </head>
 <body>
   <div class="header">
@@ -38,7 +36,7 @@
   <div class="row">
     <div class="card">
       <h3 style="margin-top:0; color:#58a6ff">📹 Cámara en Vivo</h3>
-      <video id="video" playsinline style="width:640px;height:480px;"></video>
+      <video id="video" playsinline></video>
       <div id="status">🔄 Inicializando cámara…</div>
     </div>
     <div class="card">
