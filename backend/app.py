@@ -19,14 +19,14 @@ def create_app():
                 static_url_path="/static",
                 template_folder=ROOT_DIR)
     
-    # Configurar CORS para permitir conexiones desde Live Server
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "http://127.0.0.1:5501",  # Live Server
-                "http://localhost:5501",   # Live Server alternativo
-                "http://127.0.0.1:5000",  # Flask directo
-                "http://localhost:5000"    # Flask alternativo
+                "http://127.0.0.1:5501",
+                "http://localhost:5501", 
+                "http://127.0.0.1:5000",
+                "http://localhost:5000",
+                "https://jeztorres.github.io"
             ]
         }
     })
