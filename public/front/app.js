@@ -2,10 +2,31 @@
 const ENDPOINT_GESTOS = "http://127.0.0.1:5000/api/gestos";
 
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("🚀 DOM cargado, iniciando aplicación...");
+  
   const videoElement = document.getElementById('video');
   const canvasElement = document.getElementById('canvasOutput');
   const canvasCtx = canvasElement.getContext('2d');
   const status = document.getElementById('status');
+
+  // Verificar que los elementos existan
+  if (!videoElement) {
+    console.error("❌ Elemento video no encontrado");
+    status.textContent = "❌ Error: Elemento video no encontrado";
+    return;
+  }
+  
+  if (!canvasElement) {
+    console.error("❌ Elemento canvas no encontrado");
+    status.textContent = "❌ Error: Elemento canvas no encontrado";
+    return;
+  }
+
+  console.log("✅ Elementos DOM encontrados:", {
+    video: videoElement,
+    canvas: canvasElement,
+    status: status
+  });
 
   const cejaCounterEl = document.getElementById('ceja-counter');
   const bocaCounterEl = document.getElementById('boca-counter');
@@ -14,19 +35,44 @@ document.addEventListener("DOMContentLoaded", () => {
   let cejaCount = 0, bocaCount = 0, parpadeoCount = 0;
 
   // Verificar si las librerías están disponibles
+  console.log("🔍 Verificando librerías...");
+  console.log("- Camera disponible:", typeof Camera !== 'undefined');
+  console.log("- FaceMesh disponible:", typeof FaceMesh !== 'undefined');
+  console.log("- drawConnectors disponible:", typeof drawConnectors !== 'undefined');
+  console.log("- FACEMESH_* disponibles:", {
+    TESSELATION: typeof FACEMESH_TESSELATION !== 'undefined',
+    RIGHT_EYE: typeof FACEMESH_RIGHT_EYE !== 'undefined',
+    LEFT_EYE: typeof FACEMESH_LEFT_EYE !== 'undefined',
+    LIPS: typeof FACEMESH_LIPS !== 'undefined'
+  });
+
   if (typeof Camera === 'undefined') {
-    status.textContent = "❌ Error: Librería Camera no cargada";
+    status.textContent = "❌ Error: Librería Camera no cargada - Verifica conexión a internet";
     console.error("MediaPipe Camera utils no está disponible");
     return;
   }
 
   if (typeof FaceMesh === 'undefined') {
-    status.textContent = "❌ Error: Librería FaceMesh no cargada";
+    status.textContent = "❌ Error: Librería FaceMesh no cargada - Verifica conexión a internet";
     console.error("MediaPipe FaceMesh no está disponible");
     return;
   }
 
+  if (typeof drawConnectors === 'undefined') {
+    status.textContent = "❌ Error: Librería drawing_utils no cargada";
+    console.error("MediaPipe drawing_utils no está disponible");
+    return;
+  }
+
   console.log("✅ Librerías MediaPipe cargadas correctamente");
+  
+  // Verificar OpenCV (opcional pero recomendado)
+  if (typeof cvReady === 'undefined' || !cvReady) {
+    console.log("⚠️ OpenCV.js aún no está listo, usando fallback");
+  } else {
+    console.log("✅ OpenCV.js cargado correctamente");
+  }
+  
   status.textContent = "🔄 Inicializando detección facial...";
 
   // Verificar si estamos en HTTPS o localhost
@@ -123,9 +169,28 @@ document.addEventListener("DOMContentLoaded", () => {
     frameCounter++;
     canvasCtx.save();
 
-    // Limpiar canvas y dibujar imagen a color (calibrada al mismo tamaño)
+    // Limpiar canvas
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    
+    // Dibujar imagen base a COLOR (con OpenCV si está listo)
+    if (typeof cvReady !== "undefined" && cvReady && typeof cv !== "undefined") {
+      // Usar OpenCV pero MANTENER LOS COLORES
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      
+      // Leer la imagen del canvas (ya a color)
+      let src = cv.imread(canvasElement);
+      
+      // *** NO CONVERTIR A ESCALA DE GRISES - MANTENER COLOR ***
+      // En lugar de cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+      // Solo mostramos la imagen original a color
+      cv.imshow(canvasElement, src);
+      
+      // Liberar memoria
+      src.delete();
+    } else {
+      // Fallback sin OpenCV - también a color
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    }
 
     // Dibujar los landmarks de detección facial si hay rostros
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
