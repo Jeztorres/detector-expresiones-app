@@ -1,8 +1,8 @@
 // --- CONFIG API (endpoint del backend Flask) ---
-// Detectar si estamos en GitHub Pages o localhost
+// Para GitHub Pages, usar un backend público o deshabilitar guardado
 const isGitHubPages = window.location.hostname.includes('github.io');
 const ENDPOINT_GESTOS = isGitHubPages 
-  ? "https://detector-expresiones-backend.herokuapp.com/api/gestos"  // Backend en la nube
+  ? null  // Sin backend en GitHub Pages
   : "http://127.0.0.1:5000/api/gestos";  // Backend local
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -296,6 +296,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ======= API =======
   async function enviarEvento(tipo, estado) {
+    if (!ENDPOINT_GESTOS) {
+      // En GitHub Pages, solo mostrar en consola
+      console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
+      return;
+    }
+    
     try {
       await fetch(ENDPOINT_GESTOS, {
         method: "POST",
