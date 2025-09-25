@@ -54,10 +54,10 @@
 
   <script>
     // --- CONFIG API (endpoint del backend Flask) ---
-    // Para GitHub Pages, usar un backend público o deshabilitar guardado
+    // Detectar si estamos en GitHub Pages o localhost
     const isGitHubPages = window.location.hostname.includes('github.io');
     const ENDPOINT_GESTOS = isGitHubPages 
-      ? null  // Sin backend en GitHub Pages
+      ? "https://detector-expresiones-backend.onrender.com/api/gestos"  // Backend en la nube
       : "http://127.0.0.1:5000/api/gestos";  // Backend local
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -216,20 +216,22 @@
 
       // ======= API =======
       async function enviarEvento(tipo, estado) {
-        if (!ENDPOINT_GESTOS) {
-          // En GitHub Pages, solo mostrar en consola
-          console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
-          return;
-        }
+        console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
         
         try {
-          await fetch(ENDPOINT_GESTOS, {
+          const response = await fetch(ENDPOINT_GESTOS, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tipo_gesto: tipo, estado })
           });
+          
+          if (response.ok) {
+            console.log(`✅ Gesto guardado: ${tipo} - ${estado}`);
+          } else {
+            console.log(`⚠️ Error guardando gesto: ${response.status}`);
+          }
         } catch (err) {
-          console.error("Error guardando evento:", tipo, estado, err);
+          console.log(`❌ Error de conexión: ${tipo} - ${estado}`, err.message);
         }
       }
 
