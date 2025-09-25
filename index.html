@@ -28,6 +28,9 @@
   <!-- OpenCV.js (opcional, solo para filtro gris de ejemplo) -->
   <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;"></script>
   <script>var cvReady=false;</script>
+  
+  <!-- API estática para GitHub Pages -->
+  <script src="api/gestos.js"></script>
 </head>
 <body>
   <div class="header">
@@ -50,15 +53,15 @@
 
   <div class="footer">
     <p>🚀 <a href="https://github.com/Jeztorres/detector-expresiones-app" class="github-link">Ver en GitHub</a></p>
+    <button id="exportBtn" onclick="exportarDatos()" style="margin-top: 10px; padding: 8px 16px; background: #58a6ff; color: white; border: none; border-radius: 6px; cursor: pointer;">
+      📊 Exportar Datos a MySQL
+    </button>
   </div>
 
   <script>
-    // --- CONFIG API (endpoint del backend Flask) ---
+    // --- CONFIG API ---
     // Detectar si estamos en GitHub Pages o localhost
     const isGitHubPages = window.location.hostname.includes('github.io');
-    const ENDPOINT_GESTOS = isGitHubPages 
-      ? "https://detector-expresiones-backend.onrender.com/api/gestos"  // Backend en la nube
-      : "http://127.0.0.1:5000/api/gestos";  // Backend local
 
     document.addEventListener("DOMContentLoaded", () => {
       console.log("🚀 DOM cargado, iniciando aplicación...");
@@ -218,20 +221,36 @@
       async function enviarEvento(tipo, estado) {
         console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
         
-        try {
-          const response = await fetch(ENDPOINT_GESTOS, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tipo_gesto: tipo, estado })
-          });
-          
-          if (response.ok) {
-            console.log(`✅ Gesto guardado: ${tipo} - ${estado}`);
-          } else {
-            console.log(`⚠️ Error guardando gesto: ${response.status}`);
+        if (isGitHubPages) {
+          // En GitHub Pages, usar API estática
+          try {
+            const gesto = window.GestosAPI.save(tipo, estado);
+            console.log(`✅ Gesto guardado en localStorage: ${tipo} - ${estado}`);
+            
+            // Mostrar estadísticas en consola
+            const todosGestos = window.GestosAPI.getAll();
+            console.log(`📊 Total de gestos guardados: ${todosGestos.length}`);
+            
+          } catch (err) {
+            console.log(`❌ Error guardando en localStorage: ${err.message}`);
           }
-        } catch (err) {
-          console.log(`❌ Error de conexión: ${tipo} - ${estado}`, err.message);
+        } else {
+          // En localhost, usar backend Flask
+          try {
+            const response = await fetch("http://127.0.0.1:5000/api/gestos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tipo_gesto: tipo, estado })
+            });
+            
+            if (response.ok) {
+              console.log(`✅ Gesto guardado en MySQL: ${tipo} - ${estado}`);
+            } else {
+              console.log(`⚠️ Error guardando gesto: ${response.status}`);
+            }
+          } catch (err) {
+            console.log(`❌ Error de conexión: ${tipo} - ${estado}`, err.message);
+          }
         }
       }
 
@@ -274,6 +293,44 @@
       // Inicializar cuando el DOM esté listo
       initializeCamera();
     });
+
+    // Función global para exportar datos
+    function exportarDatos() {
+      if (isGitHubPages && window.GestosAPI) {
+        const todosGestos = window.GestosAPI.getAll();
+        
+        if (todosGestos.length === 0) {
+          alert('No hay datos para exportar');
+          return;
+        }
+        
+        // Crear archivo JSON con los datos
+        const dataStr = JSON.stringify(todosGestos, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        
+        // Descargar archivo
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `gestos_${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        
+        console.log(`📊 Exportados ${todosGestos.length} gestos`);
+        alert(`✅ Exportados ${todosGestos.length} gestos a archivo JSON`);
+        
+        // Mostrar resumen en consola
+        const resumen = {
+          parpadeos: todosGestos.filter(g => g.tipo === 'parpadeo').length,
+          cejas: todosGestos.filter(g => g.tipo === 'cejas').length,
+          boca: todosGestos.filter(g => g.tipo === 'boca').length,
+          total: todosGestos.length
+        };
+        
+        console.log('📈 Resumen de gestos:', resumen);
+        
+      } else {
+        alert('Esta función solo está disponible en GitHub Pages');
+      }
+    }
   </script>
 </body>
 </html>
