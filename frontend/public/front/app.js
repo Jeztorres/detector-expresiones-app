@@ -1,5 +1,9 @@
 // --- CONFIG API (endpoint del backend Flask) ---
-const ENDPOINT_GESTOS = "http://127.0.0.1:5000/api/gestos";
+// Detectar si estamos en GitHub Pages o localhost
+const isGitHubPages = window.location.hostname.includes('github.io');
+const ENDPOINT_GESTOS = isGitHubPages 
+  ? "https://detector-expresiones-backend.herokuapp.com/api/gestos"  // Backend en la nube
+  : "http://127.0.0.1:5000/api/gestos";  // Backend local
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 DOM cargado, iniciando aplicación...");
