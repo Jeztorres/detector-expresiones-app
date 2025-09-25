@@ -1,6 +1,6 @@
 from datetime import datetime
-from repositories.db import connection_factory
-from models.gesto import Gesto, TipoGesto
+from src.repositories.db import connection_factory
+from src.models.gesto import Gesto, TipoGesto
 
 class GestoRepository:
     """Repositorio para manejo de gestos en la base de datos"""

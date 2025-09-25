@@ -1,4 +1,4 @@
-from repositories.db import connection_factory
+from src.repositories.db import connection_factory
 from typing import List, Dict, Any
 
 class EstadisticasRepository:

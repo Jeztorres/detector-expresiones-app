@@ -1,6 +1,6 @@
 from datetime import datetime
-from models.gesto import Gesto, TipoGesto
-from repositories.gesto_repository import GestoRepository
+from src.models.gesto import Gesto, TipoGesto
+from src.repositories.gesto_repository import GestoRepository
 
 class ValidationError(Exception):
     pass

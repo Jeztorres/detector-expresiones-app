@@ -3,29 +3,29 @@ from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-from api.controllers.gestos_controller import bp as gestos_bp
-from api.controllers.estadisticas_controller import bp_stats
+from src.api.controllers.gestos_controller import bp as gestos_bp
+from src.api.controllers.estadisticas_controller import bp_stats
 
 load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-FRONT_DIR = os.path.join(BASE_DIR, "front")
+PUBLIC_DIR = os.path.join(BASE_DIR, "public")
+FRONT_DIR = os.path.join(PUBLIC_DIR, "front")
 
 def create_app():
     app = Flask(__name__,
-                static_folder=FRONT_DIR,
-                static_url_path="/static")
+                static_folder=PUBLIC_DIR,
+                static_url_path="/static",
+                template_folder=BASE_DIR)
     
-    # Configurar CORS para permitir conexiones desde Live Server y GitHub Pages
+    # Configurar CORS para permitir conexiones desde Live Server
     CORS(app, resources={
         r"/api/*": {
             "origins": [
                 "http://127.0.0.1:5501",  # Live Server
                 "http://localhost:5501",   # Live Server alternativo
                 "http://127.0.0.1:5000",  # Flask directo
-                "http://localhost:5000",   # Flask alternativo
-                "https://jeztorres.github.io",  # GitHub Pages
-                "https://jeztorres.github.io/detector-expresiones-app/"  # App específica
+                "http://localhost:5000"    # Flask alternativo
             ]
         }
     })
@@ -36,7 +36,7 @@ def create_app():
 
     @app.route("/")
     def index():
-        return send_from_directory(".", "index.html")
+        return send_from_directory(BASE_DIR, "index.html")
     
     # Rutas para servir archivos estáticos del frontend
     @app.route("/front/<path:filename>")
@@ -48,7 +48,7 @@ def create_app():
         # Evitar conflictos con las rutas de la API
         if filename.startswith('api/'):
             return "Not Found", 404
-        return send_from_directory(".", filename)
+        return send_from_directory(PUBLIC_DIR, filename)
 
     app.register_blueprint(gestos_bp)
     app.register_blueprint(bp_stats)

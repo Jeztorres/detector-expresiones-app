@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from services.gesto_service import GestoService, ValidationError
+from src.services.gesto_service import GestoService, ValidationError
 import traceback
 
 bp = Blueprint("gestos", __name__, url_prefix="/api")

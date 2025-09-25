@@ -1,50 +1,73 @@
-# Proyecto API Gestos (MVC + SP)
+# 🎯 Detector de Expresiones Faciales
 
-Este paquete reestructura tu backend a MVC/OOP con repositorio y Stored Procedures.
+Una aplicación web moderna para la detección en tiempo real de gestos faciales usando **MediaPipe**, **Flask** y **MySQL**. 
 
-## Estructura
-```
-api/controllers/gestos_controller.py  # rutas Flask
-services/gesto_service.py             # reglas de negocio/validación
-repositories/db.py                    # conexión a MySQL
-repositories/gesto_repository.py      # llamadas a SP
-models/gesto.py                       # dataclass Gesto
-config/settings.py                    # configuración desde .env
-app.py                                # arranque Flask
-front/                                
-```
-Además se incluyen tus archivos de frontend originales en `front/`.
+![Python](https://img.shields.io/badge/Python-3.13-blue)
+![Flask](https://img.shields.io/badge/Flask-3.0-green)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-Latest-red)
 
-## Requisitos
-```
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+## ✨ Características
+
+- 🎥 **Detección en tiempo real** de gestos faciales
+- 👁️ **Seguimiento de parpadeos** (abierto/cerrado)
+- 🤨 **Detección de cejas** (arqueadas/normal)  
+- 👄 **Monitoreo de boca** (abierta/cerrada)
+- 📊 **Almacenamiento en base de datos** MySQL
+- 🔄 **APIs REST** para integración
+- 🌐 **Interfaz web moderna** y responsive
+
+## 🚀 Demo en Vivo
+
+[Ver Demo](https://jeztorres.github.io/detector-expresiones-app/)
+
+## 📋 Instalación
+
+```bash
+# 1. Clonar repositorio
+git clone https://github.com/Jeztorres/detector-expresiones-app.git
+cd detector-expresiones-app
+
+# 2. Instalar dependencias
 pip install -r requirements.txt
-cp .env.example .env  # y completa credenciales
+
+# 3. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales de MySQL
+
+# 4. Ejecutar aplicación
 python app.py
 ```
-Health check: `GET http://localhost:5000/health`
 
-### Endpoint principal
-`POST /api/gestos`
-```json
-{
-  "tipo_gesto": "parpadeo|cejas|boca",
-  "estado": "según el tipo"
-}
+## 🏗️ Estructura del Proyecto
+
 ```
-*201* → `{"mensaje":"Gesto registrado", "tipo":"...", "estado":"...", "fecha":"..."}`  
-*400* → `{"error":"..."}` (validación)  
-*500* → `{"error":"Error interno del servidor"}` (BD/falla)
+detector-expresiones-app/
+├── src/                      # Backend (Flask)
+│   ├── api/controllers/      # Controladores REST
+│   ├── config/              # Configuración
+│   ├── models/              # Modelos de datos
+│   ├── repositories/        # Capa de datos
+│   └── services/            # Lógica de negocio
+├── public/                   # Frontend
+│   ├── front/               # Assets (JS, CSS)
+│   ├── index.html           # Página principal
+│   └── demo.html            # Demo para GitHub Pages
+├── docs/                    # Documentación y pruebas
+├── app.py                   # Punto de entrada
+└── requirements.txt         # Dependencias
+```
 
-### Stored Procedures esperados
-- `sp_insertar_estado_parpadeo(estado VARCHAR)`
-- `sp_insertar_estado_ceja(estado VARCHAR)`
-- `sp_insertar_estado_boca(estado VARCHAR)`
+## 📡 API Endpoints
 
-## Thunder Client (VS Code)
-Importa `tests/thunder_collection.json` y usa el environment `local`.
+- `POST /api/gestos` - Registrar gesto
+- `GET /api/gestos` - Historial de gestos
+- `GET /api/estadisticas/gesto` - Estadísticas por fecha
 
-## Notas Frontend
-En `front/index.html` y `front/app.js` se conservó tu lógica. Si quieres apuntar al backend local,
-ajusta `API_BASE_URL` a `http://localhost:5000`.
+## 👨‍💻 Autor
+
+**Jeztorres** - [@Jeztorres](https://github.com/Jeztorres)
+
+---
+
+⭐ ¡Dale una estrella si te resultó útil!

@@ -1,6 +1,6 @@
 # api/controllers/estadisticas_controller.py
 from flask import Blueprint, request, jsonify
-from services.estadisticas_service import EstadisticasService, ValidationError
+from src.services.estadisticas_service import EstadisticasService, ValidationError
 
 bp_stats = Blueprint("estadisticas", __name__, url_prefix="/api")
 service = EstadisticasService()

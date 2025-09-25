@@ -29,7 +29,10 @@ jobs:
         uses: actions/configure-pages@v4
       
       - name: Copy demo.html as index.html for GitHub Pages
-        run: cp demo.html index.html
+        run: cp public/demo.html index.html
+      
+      - name: Copy front directory for GitHub Pages
+        run: cp -r public/front ./front
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

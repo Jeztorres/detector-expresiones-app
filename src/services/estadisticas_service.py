@@ -1,6 +1,6 @@
 # services/estadisticas_service.py
 from datetime import datetime
-from repositories.estadisticas_repository import EstadisticasRepository
+from src.repositories.estadisticas_repository import EstadisticasRepository
 
 class ValidationError(Exception):
     pass
