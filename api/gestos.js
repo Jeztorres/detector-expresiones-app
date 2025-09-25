@@ -1,56 +1,115 @@
-// API estática para GitHub Pages
-// Simula el backend Flask pero funciona como archivo estático
+// API para GitHub Pages que se conecta directamente a MySQL en la nube
+// Usa tu backend existente desplegado en la nube
 
-// Base de datos simulada en localStorage
-const DB_KEY = 'gestos_database';
+// Configuración de la base de datos en la nube
+const DB_CONFIG = {
+    // URL de tu backend desplegado en la nube (Railway, Render, Heroku, etc.)
+    apiUrl: 'https://detector-expresiones-backend.railway.app/api/gestos'
+};
 
-function initDatabase() {
-    if (!localStorage.getItem(DB_KEY)) {
-        localStorage.setItem(DB_KEY, JSON.stringify({
-            parpadeos: [],
-            cejas: [],
-            boca: []
-        }));
+// Función para enviar datos a MySQL en la nube
+async function saveGesto(tipo, estado) {
+    try {
+        const response = await fetch(DB_CONFIG.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                tipo_gesto: tipo,
+                estado: estado
+            })
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log(`✅ Gesto guardado en MySQL: ${tipo} - ${estado}`);
+            return result;
+        } else {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error(`❌ Error guardando en MySQL: ${error.message}`);
+        
+        // Fallback: guardar en localStorage si falla la conexión
+        const fallbackData = {
+            tipo: tipo,
+            estado: estado,
+            fecha: new Date().toISOString(),
+            error: error.message
+        };
+        
+        const existingData = JSON.parse(localStorage.getItem('gestos_fallback') || '[]');
+        existingData.push(fallbackData);
+        localStorage.setItem('gestos_fallback', JSON.stringify(existingData));
+        
+        console.log(`💾 Gesto guardado en localStorage como fallback: ${tipo} - ${estado}`);
+        return fallbackData;
     }
 }
 
-function saveGesto(tipo, estado) {
-    const db = JSON.parse(localStorage.getItem(DB_KEY));
-    const gesto = {
-        tipo: tipo,
-        estado: estado,
-        fecha: new Date().toISOString()
-    };
-    
-    db[tipo + 's'].push(gesto);
-    localStorage.setItem(DB_KEY, JSON.stringify(db));
-    
-    console.log(`✅ Gesto guardado en localStorage: ${tipo} - ${estado}`);
-    return gesto;
-}
-
-function getGestos() {
-    const db = JSON.parse(localStorage.getItem(DB_KEY));
-    const allGestos = [];
-    
-    Object.keys(db).forEach(tipo => {
-        db[tipo].forEach(gesto => {
-            allGestos.push({
-                tipo: tipo.slice(0, -1), // quitar 's' del final
-                estado: gesto.estado,
-                fecha: gesto.fecha
-            });
+// Función para obtener gestos desde MySQL en la nube
+async function getGestos() {
+    try {
+        const response = await fetch(DB_CONFIG.apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
         });
-    });
-    
-    return allGestos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        
+        if (response.ok) {
+            const gestos = await response.json();
+            console.log(`📊 Obtenidos ${gestos.length} gestos desde MySQL`);
+            return gestos;
+        } else {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        console.error(`❌ Error obteniendo gestos: ${error.message}`);
+        
+        // Fallback: obtener desde localStorage
+        const fallbackData = JSON.parse(localStorage.getItem('gestos_fallback') || '[]');
+        console.log(`💾 Obtenidos ${fallbackData.length} gestos desde localStorage`);
+        return fallbackData;
+    }
 }
 
-// Inicializar base de datos
-initDatabase();
+// Función para sincronizar datos pendientes
+async function sincronizarPendientes() {
+    const pendientes = JSON.parse(localStorage.getItem('gestos_fallback') || '[]');
+    
+    if (pendientes.length === 0) {
+        console.log('✅ No hay datos pendientes para sincronizar');
+        return;
+    }
+    
+    console.log(`🔄 Sincronizando ${pendientes.length} gestos pendientes...`);
+    
+    for (const gesto of pendientes) {
+        try {
+            await saveGesto(gesto.tipo, gesto.estado);
+        } catch (error) {
+            console.error(`❌ Error sincronizando gesto: ${error.message}`);
+            break; // Si falla, parar la sincronización
+        }
+    }
+    
+    // Limpiar datos sincronizados
+    localStorage.removeItem('gestos_fallback');
+    console.log('✅ Sincronización completada');
+}
 
 // Exportar funciones para uso global
 window.GestosAPI = {
     save: saveGesto,
-    getAll: getGestos
+    getAll: getGestos,
+    sync: sincronizarPendientes
 };
+
+// Sincronizar datos pendientes al cargar
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        window.GestosAPI.sync();
+    }, 2000); // Esperar 2 segundos para que la página cargue
+});

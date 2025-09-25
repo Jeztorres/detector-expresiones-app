@@ -221,36 +221,17 @@
       async function enviarEvento(tipo, estado) {
         console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
         
-        if (isGitHubPages) {
-          // En GitHub Pages, usar API estática
-          try {
-            const gesto = window.GestosAPI.save(tipo, estado);
-            console.log(`✅ Gesto guardado en localStorage: ${tipo} - ${estado}`);
-            
-            // Mostrar estadísticas en consola
-            const todosGestos = window.GestosAPI.getAll();
-            console.log(`📊 Total de gestos guardados: ${todosGestos.length}`);
-            
-          } catch (err) {
-            console.log(`❌ Error guardando en localStorage: ${err.message}`);
-          }
-        } else {
-          // En localhost, usar backend Flask
-          try {
-            const response = await fetch("http://127.0.0.1:5000/api/gestos", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tipo_gesto: tipo, estado })
-            });
-            
-            if (response.ok) {
-              console.log(`✅ Gesto guardado en MySQL: ${tipo} - ${estado}`);
-            } else {
-              console.log(`⚠️ Error guardando gesto: ${response.status}`);
-            }
-          } catch (err) {
-            console.log(`❌ Error de conexión: ${tipo} - ${estado}`, err.message);
-          }
+        try {
+          // Usar la API que se conecta directamente a MySQL en la nube
+          const gesto = await window.GestosAPI.save(tipo, estado);
+          console.log(`✅ Gesto procesado: ${tipo} - ${estado}`);
+          
+          // Mostrar estadísticas
+          const todosGestos = await window.GestosAPI.getAll();
+          console.log(`📊 Total de gestos en la nube: ${todosGestos.length}`);
+          
+        } catch (err) {
+          console.log(`❌ Error procesando gesto: ${err.message}`);
         }
       }
 
@@ -295,9 +276,9 @@
     });
 
     // Función global para exportar datos
-    function exportarDatos() {
-      if (isGitHubPages && window.GestosAPI) {
-        const todosGestos = window.GestosAPI.getAll();
+    async function exportarDatos() {
+      try {
+        const todosGestos = await window.GestosAPI.getAll();
         
         if (todosGestos.length === 0) {
           alert('No hay datos para exportar');
@@ -314,8 +295,8 @@
         link.download = `gestos_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         
-        console.log(`📊 Exportados ${todosGestos.length} gestos`);
-        alert(`✅ Exportados ${todosGestos.length} gestos a archivo JSON`);
+        console.log(`📊 Exportados ${todosGestos.length} gestos desde MySQL`);
+        alert(`✅ Exportados ${todosGestos.length} gestos desde MySQL a archivo JSON`);
         
         // Mostrar resumen en consola
         const resumen = {
@@ -325,10 +306,11 @@
           total: todosGestos.length
         };
         
-        console.log('📈 Resumen de gestos:', resumen);
+        console.log('📈 Resumen de gestos desde MySQL:', resumen);
         
-      } else {
-        alert('Esta función solo está disponible en GitHub Pages');
+      } catch (error) {
+        console.error('❌ Error exportando datos:', error);
+        alert('Error exportando datos: ' + error.message);
       }
     }
   </script>
