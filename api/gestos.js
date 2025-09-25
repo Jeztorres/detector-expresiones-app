@@ -1,10 +1,14 @@
-// API para GitHub Pages que se conecta directamente a MySQL en la nube
-// Usa tu backend existente desplegado en la nube
+// API para GitHub Pages que se conecta a tu MySQL local
+// Detecta si estamos en GitHub Pages o localhost
 
-// Configuración de la base de datos en la nube
+// Configuración dinámica según el entorno
+const isGitHubPages = window.location.hostname.includes('github.io');
 const DB_CONFIG = {
-    // URL de tu backend desplegado en la nube (Railway, Render, Heroku, etc.)
-    apiUrl: 'https://detector-expresiones-backend.railway.app/api/gestos'
+    // Si estamos en GitHub Pages, usar una URL pública
+    // Si estamos en localhost, usar el backend local
+    apiUrl: isGitHubPages 
+        ? 'https://tu-backend-publico.railway.app/api/gestos'  // Debes desplegar tu backend
+        : 'http://127.0.0.1:5000/api/gestos'  // Backend local
 };
 
 // Función para enviar datos a MySQL en la nube
