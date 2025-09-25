@@ -9,14 +9,15 @@ from src.api.controllers.estadisticas_controller import bp_stats
 load_dotenv()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-PUBLIC_DIR = os.path.join(BASE_DIR, "public")
-FRONT_DIR = os.path.join(PUBLIC_DIR, "front")
+ROOT_DIR = os.path.dirname(BASE_DIR)
+FRONTEND_DIR = os.path.join(ROOT_DIR, "frontend", "public")
+FRONT_DIR = os.path.join(FRONTEND_DIR, "front")
 
 def create_app():
     app = Flask(__name__,
-                static_folder=PUBLIC_DIR,
+                static_folder=FRONTEND_DIR,
                 static_url_path="/static",
-                template_folder=BASE_DIR)
+                template_folder=ROOT_DIR)
     
     # Configurar CORS para permitir conexiones desde Live Server
     CORS(app, resources={
@@ -36,7 +37,7 @@ def create_app():
 
     @app.route("/")
     def index():
-        return send_from_directory(BASE_DIR, "index.html")
+        return send_from_directory(ROOT_DIR, "index.html")
     
     # Rutas para servir archivos estáticos del frontend
     @app.route("/front/<path:filename>")
@@ -48,7 +49,7 @@ def create_app():
         # Evitar conflictos con las rutas de la API
         if filename.startswith('api/'):
             return "Not Found", 404
-        return send_from_directory(PUBLIC_DIR, filename)
+        return send_from_directory(FRONTEND_DIR, filename)
 
     app.register_blueprint(gestos_bp)
     app.register_blueprint(bp_stats)

@@ -1,73 +1,112 @@
-# 🎯 Detector de Expresiones Faciales
+# 🎭 Detector de Expresiones Faciales
 
-Una aplicación web moderna para la detección en tiempo real de gestos faciales usando **MediaPipe**, **Flask** y **MySQL**. 
+Sistema completo de detección de gestos faciales en tiempo real usando MediaPipe Face Mesh y arquitectura MVC.
 
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![Flask](https://img.shields.io/badge/Flask-3.0-green)
-![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-Latest-red)
-
-## ✨ Características
-
-- 🎥 **Detección en tiempo real** de gestos faciales
-- 👁️ **Seguimiento de parpadeos** (abierto/cerrado)
-- 🤨 **Detección de cejas** (arqueadas/normal)  
-- 👄 **Monitoreo de boca** (abierta/cerrada)
-- 📊 **Almacenamiento en base de datos** MySQL
-- 🔄 **APIs REST** para integración
-- 🌐 **Interfaz web moderna** y responsive
-
-## 🚀 Demo en Vivo
-
-[Ver Demo](https://jeztorres.github.io/detector-expresiones-app/)
-
-## 📋 Instalación
-
-```bash
-# 1. Clonar repositorio
-git clone https://github.com/Jeztorres/detector-expresiones-app.git
-cd detector-expresiones-app
-
-# 2. Instalar dependencias
-pip install -r requirements.txt
-
-# 3. Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus credenciales de MySQL
-
-# 4. Ejecutar aplicación
-python app.py
-```
-
-## 🏗️ Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 detector-expresiones-app/
-├── src/                      # Backend (Flask)
-│   ├── api/controllers/      # Controladores REST
-│   ├── config/              # Configuración
-│   ├── models/              # Modelos de datos
-│   ├── repositories/        # Capa de datos
-│   └── services/            # Lógica de negocio
-├── public/                   # Frontend
-│   ├── front/               # Assets (JS, CSS)
-│   ├── index.html           # Página principal
-│   └── demo.html            # Demo para GitHub Pages
-├── docs/                    # Documentación y pruebas
-├── app.py                   # Punto de entrada
-└── requirements.txt         # Dependencias
+├── index.html              # Frontend principal
+├── backend/                 # Servidor Flask
+│   ├── app.py              # Aplicación principal
+│   ├── src/                # Código fuente MVC
+│   │   ├── api/controllers/    # Controladores REST
+│   │   ├── config/             # Configuración
+│   │   ├── models/             # Modelos de datos
+│   │   ├── repositories/       # Acceso a base de datos
+│   │   └── services/           # Lógica de negocio
+│   ├── requirements.txt    # Dependencias Python
+│   ├── test_gestos.py      # Script de pruebas
+│   └── monitor_gestos.py  # Monitoreo en tiempo real
+├── frontend/               # Cliente web
+│   └── public/front/       # Archivos estáticos
+│       ├── app.js          # Lógica de detección
+│       └── haarcascade_*.xml # Modelos OpenCV
+└── README.md               # Documentación
 ```
 
-## 📡 API Endpoints
+## 🚀 Características
 
-- `POST /api/gestos` - Registrar gesto
-- `GET /api/gestos` - Historial de gestos
-- `GET /api/estadisticas/gesto` - Estadísticas por fecha
+- **Detección en tiempo real** de 3 tipos de gestos:
+  - 👁️ **Parpadeos** (abierto/cerrado)
+  - 🤨 **Cejas** (arqueadas/normal)
+  - 😮 **Boca** (abierta/cerrada)
 
-## 👨‍💻 Autor
+- **Tecnologías**:
+  - **Frontend**: HTML5, JavaScript, MediaPipe Face Mesh
+  - **Backend**: Python Flask, MySQL
+  - **Detección**: Algoritmos EAR (Eye Aspect Ratio)
+  - **Arquitectura**: MVC + Repository + Service Layer
 
-**Jeztorres** - [@Jeztorres](https://github.com/Jeztorres)
+## 🛠️ Instalación y Uso
+
+### 1. Configurar Backend
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
+
+### 2. Acceder al Frontend
+Abre `index.html` en tu navegador o accede a:
+- **Local**: http://localhost:5000
+- **GitHub Pages**: https://jeztorres.github.io/detector-expresiones-app/
+
+### 3. Monitorear Gestos (Opcional)
+```bash
+cd backend
+python monitor_gestos.py
+```
+
+## 📊 API Endpoints
+
+- **POST** `/api/gestos` - Registrar gesto
+- **GET** `/api/gestos` - Obtener historial
+- **GET** `/api/estadisticas/gesto` - Estadísticas por fecha
+- **GET** `/health` - Health check
+
+## 🗄️ Base de Datos
+
+El sistema guarda automáticamente todos los gestos en MySQL:
+- `parpadeos_hist` - Historial de parpadeos
+- `cejas_hist` - Historial de cejas
+- `boca_hist` - Historial de boca
+
+## 🎯 Uso
+
+1. **Permite acceso a la cámara** cuando te lo solicite
+2. **Espera la calibración** (100 frames iniciales)
+3. **Haz gestos** y observa la detección en tiempo real
+4. **Los datos se guardan automáticamente** en la base de datos
+
+## 🔧 Desarrollo
+
+### Estructura MVC
+- **Models**: Definición de entidades (`gesto.py`)
+- **Views**: Frontend HTML/JS (`index.html`, `app.js`)
+- **Controllers**: Endpoints REST (`gestos_controller.py`)
+- **Services**: Lógica de negocio (`gesto_service.py`)
+- **Repositories**: Acceso a datos (`gesto_repository.py`)
+
+### Scripts Útiles
+- `test_gestos.py` - Probar guardado de gestos
+- `monitor_gestos.py` - Monitoreo en tiempo real
+- `test_db.py` - Verificar conexión a BD
+
+## 📈 Estadísticas
+
+El sistema incluye análisis de:
+- Conteo de gestos por tipo
+- Historial temporal
+- Estadísticas por fecha
+- Monitoreo en tiempo real
+
+## 🌐 Despliegue
+
+- **GitHub Pages**: Frontend estático
+- **Backend**: Servidor Flask local o en la nube
+- **Base de Datos**: MySQL con Stored Procedures
 
 ---
 
-⭐ ¡Dale una estrella si te resultó útil!
+**¡Sistema completo de detección de gestos faciales con arquitectura profesional!** 🎉
