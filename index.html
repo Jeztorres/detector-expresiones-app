@@ -35,7 +35,6 @@
 <body>
   <div class="header">
     <h1>🎭 Detector de Expresiones Faciales</h1>
-    <p>Detección en tiempo real usando MediaPipe Face Mesh</p>
   </div>
 
   <div class="row">
@@ -48,14 +47,12 @@
       <div class="kpi">Parpadeos: <b id="parpadeo-counter">0</b></div>
       <div class="kpi">Cejas arqueadas: <b id="ceja-counter">0</b></div>
       <div class="kpi">Bocas abiertas: <b id="boca-counter">0</b></div>
+      <div class="kpi">Último status: <b id="ultimo-status">Iniciando...</b></div>
     </div>
   </div>
 
   <div class="footer">
     <p>🚀 <a href="https://github.com/Jeztorres/detector-expresiones-app" class="github-link">Ver en GitHub</a></p>
-    <button id="exportBtn" onclick="exportarDatos()" style="margin-top: 10px; padding: 8px 16px; background: #58a6ff; color: white; border: none; border-radius: 6px; cursor: pointer;">
-      📊 Exportar Datos a MySQL
-    </button>
   </div>
 
   <script>
@@ -74,6 +71,7 @@
       const cejaCounterEl = document.getElementById('ceja-counter');
       const bocaCounterEl = document.getElementById('boca-counter');
       const parpadeoCounterEl = document.getElementById('parpadeo-counter');
+      const ultimoStatusEl = document.getElementById('ultimo-status');
 
       let cejaCount = 0, bocaCount = 0, parpadeoCount = 0;
 
@@ -221,17 +219,15 @@
       async function enviarEvento(tipo, estado) {
         console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
         
+        // Actualizar último status
+        ultimoStatusEl.textContent = `${tipo}: ${estado}`;
+        
         try {
-          // Usar la API que se conecta directamente a MySQL en la nube
           const gesto = await window.GestosAPI.save(tipo, estado);
-          console.log(`✅ Gesto procesado: ${tipo} - ${estado}`);
-          
-          // Mostrar estadísticas
-          const todosGestos = await window.GestosAPI.getAll();
-          console.log(`📊 Total de gestos en la nube: ${todosGestos.length}`);
+          console.log(`✅ Gesto guardado: ${tipo} - ${estado}`);
           
         } catch (err) {
-          console.log(`❌ Error procesando gesto: ${err.message}`);
+          console.log(`❌ Error: ${err.message}`);
         }
       }
 
@@ -275,44 +271,7 @@
       initializeCamera();
     });
 
-    // Función global para exportar datos
-    async function exportarDatos() {
-      try {
-        const todosGestos = await window.GestosAPI.getAll();
-        
-        if (todosGestos.length === 0) {
-          alert('No hay datos para exportar');
-          return;
-        }
-        
-        // Crear archivo JSON con los datos
-        const dataStr = JSON.stringify(todosGestos, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        
-        // Descargar archivo
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(dataBlob);
-        link.download = `gestos_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        
-        console.log(`📊 Exportados ${todosGestos.length} gestos desde MySQL`);
-        alert(`✅ Exportados ${todosGestos.length} gestos desde MySQL a archivo JSON`);
-        
-        // Mostrar resumen en consola
-        const resumen = {
-          parpadeos: todosGestos.filter(g => g.tipo === 'parpadeo').length,
-          cejas: todosGestos.filter(g => g.tipo === 'cejas').length,
-          boca: todosGestos.filter(g => g.tipo === 'boca').length,
-          total: todosGestos.length
-        };
-        
-        console.log('📈 Resumen de gestos desde MySQL:', resumen);
-        
-      } catch (error) {
-        console.error('❌ Error exportando datos:', error);
-        alert('Error exportando datos: ' + error.message);
-      }
-    }
+
   </script>
 </body>
 </html>
