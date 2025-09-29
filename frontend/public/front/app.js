@@ -330,8 +330,9 @@ document.addEventListener("DOMContentLoaded", () => {
       faceMesh.setOptions({
         maxNumFaces: 1,
         refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.7, // Aumentado para mayor precisión
+        minTrackingConfidence: 0.7, // Aumentado para mayor precisión
+        staticImageMode: false // Optimizado para video
       });
       
       faceMesh.onResults(onResults);
