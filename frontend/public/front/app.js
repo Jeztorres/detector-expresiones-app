@@ -12,17 +12,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const canvasElement = document.getElementById('canvasOutput');
   const canvasCtx = canvasElement.getContext('2d');
   const status = document.getElementById('status');
+  const ultimoStatusEl = document.getElementById('ultimo-status');
 
   // Verificar que los elementos existan
   if (!videoElement) {
     console.error("❌ Elemento video no encontrado");
-    status.textContent = "❌ Error: Elemento video no encontrado";
+    actualizarStatus("❌ Error: Elemento video no encontrado", "#ff6b6b");
     return;
   }
-  
+
   if (!canvasElement) {
     console.error("❌ Elemento canvas no encontrado");
-    status.textContent = "❌ Error: Elemento canvas no encontrado";
+    actualizarStatus("❌ Error: Elemento canvas no encontrado", "#ff6b6b");
     return;
   }
 
@@ -51,19 +52,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (typeof Camera === 'undefined') {
-    status.textContent = "❌ Error: Librería Camera no cargada - Verifica conexión a internet";
+    actualizarStatus("❌ Error: Librería Camera no cargada - Verifica conexión a internet", "#ff6b6b");
     console.error("MediaPipe Camera utils no está disponible");
     return;
   }
 
   if (typeof FaceMesh === 'undefined') {
-    status.textContent = "❌ Error: Librería FaceMesh no cargada - Verifica conexión a internet";
+    actualizarStatus("❌ Error: Librería FaceMesh no cargada - Verifica conexión a internet", "#ff6b6b");
     console.error("MediaPipe FaceMesh no está disponible");
     return;
   }
 
   if (typeof drawConnectors === 'undefined') {
-    status.textContent = "❌ Error: Librería drawing_utils no cargada";
+    actualizarStatus("❌ Error: Librería drawing_utils no cargada", "#ff6b6b");
     console.error("MediaPipe drawing_utils no está disponible");
     return;
   }
@@ -77,7 +78,17 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("✅ OpenCV.js cargado correctamente");
   }
   
-  status.textContent = "🔄 Inicializando detección facial...";
+  function actualizarStatus(texto, color = "#9ad1ff") {
+    if (status) {
+      status.textContent = texto;
+      status.style.color = color;
+    }
+    if (ultimoStatusEl) {
+      ultimoStatusEl.textContent = texto;
+    }
+  }
+
+  actualizarStatus("🔄 Inicializando detección facial...");
 
   // Verificar si estamos en HTTPS o localhost
   function checkSecureContext() {
@@ -108,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       console.log("🔍 Verificando permisos de cámara...");
-      status.textContent = "🔍 Verificando permisos de cámara...";
+      actualizarStatus("🔍 Verificando permisos de cámara...");
 
       // Verificar permisos usando la nueva API
       if ('permissions' in navigator) {
@@ -151,26 +162,39 @@ document.addEventListener("DOMContentLoaded", () => {
   const framesParaCalibrar = 100;
   const earBufferCalibracion = [];
   const cejaBufferCalibracion = [];
+  const bocaBufferCalibracion = [];
   let earAbiertoCalibrado = null;
   let ratioCejaNeutralPromedio = null;
+  let ratioCejaStd = 0;
+  let umbralCejaArqueada = null;
+  let umbralBocaAbierta = null;
 
   let earEma = null;
   let framesPorDebajo = 0;
   let refractario = 0;
   let umbralCierre = null;
   let umbralApertura = null;
+  let ratioCejaSuavizado = null;
+  let bocaDistanciaSuavizada = null;
+
+  let framesSinRostro = 0;
+  let rostroPresente = false;
 
   // ======= PARÁMETROS =======
-  const UMBRAL_BOCA_ABIERTA = 0.05;
   const EAR_EMA_ALPHA = 0.4;
   const FRAMES_CERRADO = 2;
   const REFRACTARIO_FRAMES = 6;
   const FACTOR_CIERRE = 0.78;
   const FACTOR_APERTURA = 0.88;
-  const FACTOR_UMBRAL_CEJA = 1.20;
+  const CEJA_EMA_ALPHA = 0.35;
+  const BOCA_EMA_ALPHA = 0.5;
+  const FACTOR_UMBRAL_CEJA_STD = 2.5;
+  const FACTOR_UMBRAL_BOCA_STD = 2.0;
+  const MIN_DELTA_CEJA = 0.015;
+  const MIN_DELTA_BOCA = 0.01;
+  const MAX_FRAMES_SIN_ROSTRO = 45;
 
   function onResults(results) {
-    frameCounter++;
     canvasCtx.save();
 
     // Limpiar canvas
@@ -198,6 +222,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Dibujar los landmarks de detección facial si hay rostros
     if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      if (!rostroPresente) {
+        actualizarStatus("📌 Rostro detectado - calibrando...");
+        rostroPresente = true;
+      }
+      framesSinRostro = 0;
       const lm = results.multiFaceLandmarks[0];
 
       // Dibujar malla facial con colores más visibles sobre video a color
@@ -207,12 +236,37 @@ document.addEventListener("DOMContentLoaded", () => {
       drawConnectors(canvasCtx, lm, FACEMESH_LIPS, { color: '#FFD700', lineWidth: 2 });
 
       detectarEstados(lm);
+    } else {
+      framesSinRostro += 1;
+      if (framesSinRostro > MAX_FRAMES_SIN_ROSTRO) {
+        rostroPresente = false;
+        actualizarStatus("🔍 Busca tu rostro dentro del recuadro", "#ffb347");
+        frameCounter = 0;
+        earBufferCalibracion.length = 0;
+        cejaBufferCalibracion.length = 0;
+        bocaBufferCalibracion.length = 0;
+        earAbiertoCalibrado = null;
+        ratioCejaNeutralPromedio = null;
+        ratioCejaStd = 0;
+        umbralCejaArqueada = null;
+        umbralBocaAbierta = null;
+        earEma = null;
+        ratioCejaSuavizado = null;
+        bocaDistanciaSuavizada = null;
+        framesPorDebajo = 0;
+        refractario = 0;
+        estadoParp = "abierto";
+        estadoBoca = "cerrada";
+        estadoCejas = "normal";
+      }
     }
-    
+
     canvasCtx.restore();
   }
 
   function detectarEstados(lm) {
+    frameCounter++;
+
     const distCeja = Math.abs(lm[159].y - lm[105].y);
     const anchoOjo = Math.abs(lm[33].x - lm[133].x);
     const ratioCeja = distCeja / anchoOjo;
@@ -225,17 +279,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Calibración
     if (frameCounter < framesParaCalibrar) {
-      status.textContent = `Calibrando... Rostro neutral (${frameCounter}%)`;
+      const progreso = Math.min(100, Math.round((frameCounter / framesParaCalibrar) * 100));
+      actualizarStatus(`Calibrando... Rostro neutral (${progreso}%)`);
       earBufferCalibracion.push(earInst);
       cejaBufferCalibracion.push(ratioCeja);
+      bocaBufferCalibracion.push(distLabios);
       return;
     } else if (frameCounter === framesParaCalibrar) {
       earAbiertoCalibrado = percentil(earBufferCalibracion, 95);
       umbralCierre   = earAbiertoCalibrado * FACTOR_CIERRE;
       umbralApertura = earAbiertoCalibrado * FACTOR_APERTURA;
 
-      ratioCejaNeutralPromedio = calcularPromedio(cejaBufferCalibracion);
-      status.textContent = 'Detección de Alta Precisión ✅';
+      const cejaStats = calcularEstadisticas(cejaBufferCalibracion);
+      ratioCejaNeutralPromedio = cejaStats.media;
+      ratioCejaStd = cejaStats.desviacion;
+      umbralCejaArqueada = ratioCejaNeutralPromedio + Math.max(ratioCejaStd * FACTOR_UMBRAL_CEJA_STD, MIN_DELTA_CEJA);
+
+      const bocaStats = calcularEstadisticas(bocaBufferCalibracion);
+      umbralBocaAbierta = bocaStats.media + Math.max(bocaStats.desviacion * FACTOR_UMBRAL_BOCA_STD, MIN_DELTA_BOCA);
+
+      actualizarStatus('Detección de alta precisión lista ✅', "#9ad1ff");
+      return;
+    }
+
+    if (
+      umbralCierre === null ||
+      umbralApertura === null ||
+      umbralCejaArqueada === null ||
+      umbralBocaAbierta === null
+    ) {
       return;
     }
 
@@ -264,7 +336,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Cejas: 'arqueadas' / 'normal' ---
-    const cejaArq = ratioCeja > ratioCejaNeutralPromedio * FACTOR_UMBRAL_CEJA ? "arqueadas" : "normal";
+    ratioCejaSuavizado = (ratioCejaSuavizado === null)
+      ? ratioCeja
+      : (CEJA_EMA_ALPHA * ratioCeja + (1 - CEJA_EMA_ALPHA) * ratioCejaSuavizado);
+
+    const cejaArq = ratioCejaSuavizado > umbralCejaArqueada ? "arqueadas" : "normal";
     if (cejaArq !== estadoCejas) {
       estadoCejas = cejaArq;
       if (cejaArq === "arqueadas") { cejaCount++; cejaCounterEl.textContent = cejaCount; }
@@ -272,7 +348,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- Boca: 'abierta' / 'cerrada' ---
-    const bocaNow = distLabios > UMBRAL_BOCA_ABIERTA ? "abierta" : "cerrada";
+    bocaDistanciaSuavizada = (bocaDistanciaSuavizada === null)
+      ? distLabios
+      : (BOCA_EMA_ALPHA * distLabios + (1 - BOCA_EMA_ALPHA) * bocaDistanciaSuavizada);
+
+    const bocaNow = bocaDistanciaSuavizada > umbralBocaAbierta ? "abierta" : "cerrada";
     if (bocaNow !== estadoBoca) {
       estadoBoca = bocaNow;
       if (bocaNow === "abierta") { bocaCount++; bocaCounterEl.textContent = bocaCount; }
@@ -287,6 +367,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return (d(p2, p6) + d(p3, p5)) / (2 * d(p1, p4));
   }
   function calcularPromedio(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+  function calcularEstadisticas(arr){
+    if(!arr.length) return { media: 0, desviacion: 0 };
+    const media = calcularPromedio(arr);
+    const varianza = arr.reduce((acc, v) => acc + Math.pow(v - media, 2), 0) / arr.length;
+    return { media, desviacion: Math.sqrt(varianza) };
+  }
   function percentil(arr, p){
     if(!arr.length) return 0;
     const a=[...arr].sort((x,y)=>x-y), r=(p/100)*(a.length-1);
@@ -321,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await checkCameraPermissions();
       
       console.log("🚀 Iniciando FaceMesh...");
-      status.textContent = "🚀 Iniciando detección facial...";
+      actualizarStatus("🚀 Iniciando detección facial...");
 
       const faceMesh = new FaceMesh({
         locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
@@ -330,15 +416,15 @@ document.addEventListener("DOMContentLoaded", () => {
       faceMesh.setOptions({
         maxNumFaces: 1,
         refineLandmarks: true,
-        minDetectionConfidence: 0.7, // Aumentado para mayor precisión
-        minTrackingConfidence: 0.7, // Aumentado para mayor precisión
+        minDetectionConfidence: 0.75, // Aumentado para mayor precisión
+        minTrackingConfidence: 0.75, // Aumentado para mayor precisión
         staticImageMode: false // Optimizado para video
       });
       
       faceMesh.onResults(onResults);
 
       console.log("📹 Iniciando cámara...");
-      status.textContent = "📹 Iniciando cámara...";
+      actualizarStatus("📹 Iniciando cámara...");
 
       const camera = new Camera(videoElement, {
         onFrame: async () => { 
@@ -355,8 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       await camera.start();
       console.log("✅ Cámara inicializada exitosamente");
-      status.textContent = "📹 Cámara activa - Detectando gestos...";
-      status.style.color = "#9ad1ff";
+      actualizarStatus("📹 Cámara activa - Detectando gestos...");
       
     } catch (error) {
       handleCameraError(error);
@@ -381,8 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
       mensaje += err.message || "Error desconocido.";
     }
     
-    status.textContent = mensaje;
-    status.style.color = "#ff6b6b";
+    actualizarStatus(mensaje, "#ff6b6b");
     
     // Mostrar botón para reintentar
     const retryBtn = document.createElement('button');
@@ -396,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
     retryBtn.style.cursor = "pointer";
     
     retryBtn.onclick = () => {
-      status.innerHTML = "🔄 Reiniciando...";
+      actualizarStatus("🔄 Reiniciando...");
       setTimeout(() => location.reload(), 500);
     };
     

@@ -62,7 +62,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       console.log("🚀 DOM cargado, iniciando aplicación...");
-      
+
       const videoElement = document.getElementById('video');
       const canvasElement = document.getElementById('canvasOutput');
       const canvasCtx = canvasElement.getContext('2d');
@@ -72,6 +72,28 @@
       const bocaCounterEl = document.getElementById('boca-counter');
       const parpadeoCounterEl = document.getElementById('parpadeo-counter');
       const ultimoStatusEl = document.getElementById('ultimo-status');
+
+      function actualizarStatus(texto, color = "#9ad1ff") {
+        if (status) {
+          status.textContent = texto;
+          status.style.color = color;
+        }
+        if (ultimoStatusEl) {
+          ultimoStatusEl.textContent = texto;
+        }
+      }
+
+      if (!videoElement) {
+        console.error("❌ Elemento video no encontrado");
+        actualizarStatus("❌ Error: Elemento video no encontrado", "#ff6b6b");
+        return;
+      }
+
+      if (!canvasElement) {
+        console.error("❌ Elemento canvas no encontrado");
+        actualizarStatus("❌ Error: Elemento canvas no encontrado", "#ff6b6b");
+        return;
+      }
 
       let cejaCount = 0, bocaCount = 0, parpadeoCount = 0;
 
@@ -85,55 +107,97 @@
       const framesParaCalibrar = 100;
       const earBufferCalibracion = [];
       const cejaBufferCalibracion = [];
+      const bocaBufferCalibracion = [];
       let earAbiertoCalibrado = null;
       let ratioCejaNeutralPromedio = null;
+      let ratioCejaStd = 0;
+      let umbralCejaArqueada = null;
+      let umbralBocaAbierta = null;
 
       let earEma = null;
       let framesPorDebajo = 0;
       let refractario = 0;
       let umbralCierre = null;
       let umbralApertura = null;
+      let ratioCejaSuavizado = null;
+      let bocaDistanciaSuavizada = null;
+
+      let framesSinRostro = 0;
+      let rostroPresente = false;
 
       // ======= PARÁMETROS =======
-      const UMBRAL_BOCA_ABIERTA = 0.05;
       const EAR_EMA_ALPHA = 0.4;
       const FRAMES_CERRADO = 2;
       const REFRACTARIO_FRAMES = 6;
       const FACTOR_CIERRE = 0.78;
       const FACTOR_APERTURA = 0.88;
-      const FACTOR_UMBRAL_CEJA = 1.20;
+      const CEJA_EMA_ALPHA = 0.35;
+      const BOCA_EMA_ALPHA = 0.5;
+      const FACTOR_UMBRAL_CEJA_STD = 2.5;
+      const FACTOR_UMBRAL_BOCA_STD = 2.0;
+      const MIN_DELTA_CEJA = 0.015;
+      const MIN_DELTA_BOCA = 0.01;
+      const MAX_FRAMES_SIN_ROSTRO = 45;
 
       function onResults(results) {
-        frameCounter++;
         canvasCtx.save();
 
-        // Dibujo base (OpenCV si está listo)
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
         if (typeof cvReady !== "undefined" && cvReady) {
           canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-          let src = cv.imread(canvasElement);
-          let gray = new cv.Mat();
-          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-          cv.imshow(canvasElement, gray);
-          src.delete(); gray.delete();
+          const src = cv.imread(canvasElement);
+          cv.imshow(canvasElement, src);
+          src.delete();
         } else {
-          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
           canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
         }
 
         if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+          if (!rostroPresente) {
+            actualizarStatus("📌 Rostro detectado - calibrando...");
+            rostroPresente = true;
+          }
+          framesSinRostro = 0;
+
           const lm = results.multiFaceLandmarks[0];
 
           drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, { color: '#C0C0C070', lineWidth: 1 });
-          drawConnectors(canvasCtx, lm, FACEMESH_RIGHT_EYE, { color: '#FF3030' });
-          drawConnectors(canvasCtx, lm, FACEMESH_LEFT_EYE, { color: '#30FF30' });
-          drawConnectors(canvasCtx, lm, FACEMESH_LIPS, { color: '#E0E0E0' });
+          drawConnectors(canvasCtx, lm, FACEMESH_RIGHT_EYE, { color: '#FF3030', lineWidth: 2 });
+          drawConnectors(canvasCtx, lm, FACEMESH_LEFT_EYE, { color: '#30FF30', lineWidth: 2 });
+          drawConnectors(canvasCtx, lm, FACEMESH_LIPS, { color: '#FFD700', lineWidth: 2 });
 
           detectarEstados(lm);
+        } else {
+          framesSinRostro += 1;
+          if (framesSinRostro > MAX_FRAMES_SIN_ROSTRO) {
+            rostroPresente = false;
+            actualizarStatus("🔍 Busca tu rostro dentro del recuadro", "#ffb347");
+            frameCounter = 0;
+            earBufferCalibracion.length = 0;
+            cejaBufferCalibracion.length = 0;
+            bocaBufferCalibracion.length = 0;
+            earAbiertoCalibrado = null;
+            ratioCejaNeutralPromedio = null;
+            ratioCejaStd = 0;
+            umbralCejaArqueada = null;
+            umbralBocaAbierta = null;
+            earEma = null;
+            ratioCejaSuavizado = null;
+            bocaDistanciaSuavizada = null;
+            framesPorDebajo = 0;
+            refractario = 0;
+            estadoParp = "abierto";
+            estadoBoca = "cerrada";
+            estadoCejas = "normal";
+          }
         }
         canvasCtx.restore();
       }
 
       function detectarEstados(lm) {
+        frameCounter++;
+
         const distCeja = Math.abs(lm[159].y - lm[105].y);
         const anchoOjo = Math.abs(lm[33].x - lm[133].x);
         const ratioCeja = distCeja / anchoOjo;
@@ -144,23 +208,39 @@
         const earDer = calcularEAR(lm, [362, 385, 387, 263, 373, 380]);
         const earInst = (earIzq + earDer) / 2;
 
-        // Calibración
         if (frameCounter < framesParaCalibrar) {
-          status.textContent = `Calibrando... Rostro neutral (${frameCounter}%)`;
+          const progreso = Math.min(100, Math.round((frameCounter / framesParaCalibrar) * 100));
+          actualizarStatus(`Calibrando... Rostro neutral (${progreso}%)`);
           earBufferCalibracion.push(earInst);
           cejaBufferCalibracion.push(ratioCeja);
+          bocaBufferCalibracion.push(distLabios);
           return;
         } else if (frameCounter === framesParaCalibrar) {
           earAbiertoCalibrado = percentil(earBufferCalibracion, 95);
           umbralCierre   = earAbiertoCalibrado * FACTOR_CIERRE;
           umbralApertura = earAbiertoCalibrado * FACTOR_APERTURA;
 
-          ratioCejaNeutralPromedio = calcularPromedio(cejaBufferCalibracion);
-          status.textContent = 'Detección de Alta Precisión ✅';
+          const cejaStats = calcularEstadisticas(cejaBufferCalibracion);
+          ratioCejaNeutralPromedio = cejaStats.media;
+          ratioCejaStd = cejaStats.desviacion;
+          umbralCejaArqueada = ratioCejaNeutralPromedio + Math.max(ratioCejaStd * FACTOR_UMBRAL_CEJA_STD, MIN_DELTA_CEJA);
+
+          const bocaStats = calcularEstadisticas(bocaBufferCalibracion);
+          umbralBocaAbierta = bocaStats.media + Math.max(bocaStats.desviacion * FACTOR_UMBRAL_BOCA_STD, MIN_DELTA_BOCA);
+
+          actualizarStatus('Detección de alta precisión lista ✅');
           return;
         }
 
-        // --- Parpadeo: transiciones 'cerrado' <-> 'abierto' ---
+        if (
+          umbralCierre === null ||
+          umbralApertura === null ||
+          umbralCejaArqueada === null ||
+          umbralBocaAbierta === null
+        ) {
+          return;
+        }
+
         earEma = (earEma === null) ? earInst : (EAR_EMA_ALPHA * earInst + (1 - EAR_EMA_ALPHA) * earEma);
         if (refractario > 0) refractario--;
 
@@ -184,16 +264,22 @@
           }
         }
 
-        // --- Cejas: 'arqueadas' / 'normal' ---
-        const cejaArq = ratioCeja > ratioCejaNeutralPromedio * FACTOR_UMBRAL_CEJA ? "arqueadas" : "normal";
+        ratioCejaSuavizado = (ratioCejaSuavizado === null)
+          ? ratioCeja
+          : (CEJA_EMA_ALPHA * ratioCeja + (1 - CEJA_EMA_ALPHA) * ratioCejaSuavizado);
+
+        const cejaArq = ratioCejaSuavizado > umbralCejaArqueada ? "arqueadas" : "normal";
         if (cejaArq !== estadoCejas) {
           estadoCejas = cejaArq;
           if (cejaArq === "arqueadas") { cejaCount++; cejaCounterEl.textContent = cejaCount; }
           enviarEvento("cejas", cejaArq);
         }
 
-        // --- Boca: 'abierta' / 'cerrada' ---
-        const bocaNow = distLabios > UMBRAL_BOCA_ABIERTA ? "abierta" : "cerrada";
+        bocaDistanciaSuavizada = (bocaDistanciaSuavizada === null)
+          ? distLabios
+          : (BOCA_EMA_ALPHA * distLabios + (1 - BOCA_EMA_ALPHA) * bocaDistanciaSuavizada);
+
+        const bocaNow = bocaDistanciaSuavizada > umbralBocaAbierta ? "abierta" : "cerrada";
         if (bocaNow !== estadoBoca) {
           estadoBoca = bocaNow;
           if (bocaNow === "abierta") { bocaCount++; bocaCounterEl.textContent = bocaCount; }
@@ -201,13 +287,18 @@
         }
       }
 
-      // ======= Helpers geométricos =======
       function calcularEAR(lm, idx) {
         const p1 = lm[idx[0]], p2 = lm[idx[1]], p3 = lm[idx[2]], p4 = lm[idx[3]], p5 = lm[idx[4]], p6 = lm[idx[5]];
         const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
         return (d(p2, p6) + d(p3, p5)) / (2 * d(p1, p4));
       }
       function calcularPromedio(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+      function calcularEstadisticas(arr){
+        if(!arr.length) return { media: 0, desviacion: 0 };
+        const media = calcularPromedio(arr);
+        const varianza = arr.reduce((acc, v) => acc + Math.pow(v - media, 2), 0) / arr.length;
+        return { media, desviacion: Math.sqrt(varianza) };
+      }
       function percentil(arr, p){
         if(!arr.length) return 0;
         const a=[...arr].sort((x,y)=>x-y), r=(p/100)*(a.length-1);
@@ -215,59 +306,107 @@
         return lo===hi ? a[lo] : a[lo] + (a[hi]-a[lo])*(r-lo);
       }
 
-      // ======= API =======
       async function enviarEvento(tipo, estado) {
         console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
-        
-        // Actualizar último status
-        ultimoStatusEl.textContent = `${tipo}: ${estado}`;
-        
+        if (ultimoStatusEl) {
+          ultimoStatusEl.textContent = `${tipo}: ${estado}`;
+        }
+
+        if (!window.GestosAPI || typeof window.GestosAPI.save !== 'function') {
+          return;
+        }
+
         try {
-          const gesto = await window.GestosAPI.save(tipo, estado);
+          await window.GestosAPI.save(tipo, estado);
           console.log(`✅ Gesto guardado: ${tipo} - ${estado}`);
-          
         } catch (err) {
-          console.log(`❌ Error: ${err.message}`);
+          console.warn(`❌ Error guardando gesto: ${err.message}`);
         }
       }
 
-      // ======= Inicializar MediaPipe + Cámara =======
-      // Inicialización principal
+      function checkSecureContext() {
+        const isSecure = window.location.protocol === 'https:' ||
+                         window.location.hostname === 'localhost' ||
+                         window.location.hostname === '127.0.0.1';
+        if (!isSecure && !isGitHubPages) {
+          console.warn("⚠️ Conexión no segura, algunos navegadores requieren HTTPS para la cámara.");
+        }
+        return isSecure;
+      }
+
+      async function checkCameraPermissions() {
+        try {
+          checkSecureContext();
+
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("Este navegador no soporta acceso a cámara. Usa Chrome, Firefox o Edge.");
+          }
+
+          actualizarStatus("🔍 Verificando permisos de cámara...");
+
+          if ('permissions' in navigator) {
+            const permission = await navigator.permissions.query({name: 'camera'});
+            if (permission.state === 'denied') {
+              throw new Error("Permisos de cámara denegados permanentemente. Activa la cámara en la configuración del navegador.");
+            }
+          }
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              facingMode: 'user'
+            }
+          });
+
+          stream.getTracks().forEach(track => track.stop());
+        } catch (error) {
+          throw error;
+        }
+      }
+
       async function initializeCamera() {
         try {
+          await checkCameraPermissions();
+
           const faceMesh = new FaceMesh({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
           });
-          
+
           faceMesh.setOptions({
             maxNumFaces: 1,
             refineLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            minDetectionConfidence: 0.75,
+            minTrackingConfidence: 0.75,
+            staticImageMode: false
           });
-          
+
           faceMesh.onResults(onResults);
 
           const camera = new Camera(videoElement, {
-            onFrame: async () => { 
-              await faceMesh.send({ image: videoElement }); 
+            onFrame: async () => {
+              try {
+                await faceMesh.send({ image: videoElement });
+              } catch (error) {
+                console.error("Error procesando frame:", error);
+              }
             },
-            width: 640, 
-            height: 480
+            width: 640,
+            height: 480,
+            facingMode: 'user'
           });
 
           await camera.start();
-          status.textContent = "Cámara inicializada ✅";
+          actualizarStatus("📹 Cámara activa - Detectando gestos...");
           console.log("✅ Cámara y MediaPipe inicializados correctamente");
-          
+
         } catch (error) {
           console.error("❌ Error inicializando cámara:", error);
-          status.textContent = "Error: Permite el acceso a la cámara en el navegador.";
+          actualizarStatus("❌ Error: Permite el acceso a la cámara en el navegador.", "#ff6b6b");
           alert("Activa los permisos de cámara (candado en la barra de direcciones).");
         }
       }
 
-      // Inicializar cuando el DOM esté listo
       initializeCamera();
     });
 
