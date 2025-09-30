@@ -1,9 +1,6 @@
 // --- CONFIG API (endpoint del backend Flask) ---
-// Para GitHub Pages, usar un backend público o deshabilitar guardado
-const isGitHubPages = window.location.hostname.includes('github.io');
-const ENDPOINT_GESTOS = isGitHubPages 
-  ? null  // Sin backend en GitHub Pages
-  : "http://127.0.0.1:5000/api/gestos";  // Backend local
+// Siempre intentar conectar al backend local, independientemente de dónde esté alojado
+const ENDPOINT_GESTOS = "http://127.0.0.1:5000/api/gestos";  // Backend local siempre
 
 document.addEventListener("DOMContentLoaded", () => {
   console.log("🚀 DOM cargado, iniciando aplicación...");
@@ -312,26 +309,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ======= API =======
   async function enviarEvento(tipo, estado) {
-    if (!ENDPOINT_GESTOS) {
-      // En GitHub Pages, solo mostrar en consola
-      console.log(`🎭 TRANSICIÓN guardada localmente: ${tipo} → ${estado}`);
-      return;
-    }
-    
     try {
       const response = await fetch(ENDPOINT_GESTOS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo_gesto: tipo, estado })
       });
-      
+
       if (response.ok) {
         console.log(`💾 TRANSICIÓN guardada en BD: ${tipo} → ${estado}`);
       } else {
         console.error(`❌ Error HTTP ${response.status} guardando:`, tipo, estado);
+        console.log(`📝 Modo offline: ${tipo} → ${estado} (no se guardó)`);
       }
     } catch (err) {
-      console.error("❌ Error de red guardando:", tipo, estado, err);
+      console.error("❌ Error de conexión guardando:", tipo, estado, err.message);
+      console.log(`📝 Modo offline: ${tipo} → ${estado} (backend no disponible)`);
     }
   }
 

@@ -41,7 +41,7 @@ class GestoRepository:
 
     def save(self, tipo_gesto: str, estado: str):
         """
-        Guarda un nuevo registro de gesto usando stored procedures que solo 
+        Guarda un nuevo registro de gesto usando stored procedures que solo
         insertan cuando hay cambio de estado (transiciones).
 
         Args:
@@ -60,20 +60,29 @@ class GestoRepository:
                 cursor = connection.cursor()
                 cursor.execute(sql, (estado,))
                 connection.commit()
-                
+
                 # El SP solo inserta si hay cambio de estado
                 print(f"✅ Estado '{tipo_gesto}: {estado}' procesado (solo se guarda si hay transición).")
         except Exception as e:
             print(f"❌ Error al procesar el estado del gesto: {e}")
             # Si hay un error, se revierte cualquier cambio en la transacción.
             if connection:
-                connection.rollback()
+                try:
+                    connection.rollback()
+                except:
+                    pass
         finally:
             # Se asegura de que el cursor y la conexión se cierren correctamente.
             if cursor:
-                cursor.close()
+                try:
+                    cursor.close()
+                except:
+                    pass
             if connection:
-                connection.close()
+                try:
+                    connection.close()
+                except:
+                    pass
 
     def get_stats_by_date(self, tipo_gesto: str, start_date: date, end_date: date):
         """
