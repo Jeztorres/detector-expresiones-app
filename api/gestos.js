@@ -13,10 +13,8 @@
    * @returns {Promise<object>} - El resultado de la API.
    */
   async function saveGesto(tipo, estado) {
-    // Solo enviar al backend los eventos significativos para no saturar la BD.
-    if ( (tipo === 'parpadeo' && estado !== 'cerrado') || (tipo === 'cejas' && estado !== 'arqueadas') || (tipo === 'boca' && estado !== 'abierta') ) {
-      return Promise.resolve({ message: "Estado no relevante, no guardado." });
-    }
+    // Se envían todos los estados al backend.
+    // La base de datos se encarga de gestionar las transiciones (solo guarda si el estado cambia).
 
     try {
       const response = await fetch(`${API_BASE_URL}/gestos`, {
