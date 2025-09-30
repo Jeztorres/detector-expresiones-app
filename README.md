@@ -1,23 +1,56 @@
 # 🎭 Detector de Expresiones Faciales
 
-Sistema completo de detección de gestos faciales en tiempo real usando MediaPipe Face Mesh y arquitectura MVC.
+Una aplicación web de inteligencia artificial que detecta gestos faciales en tiempo real usando MediaPipe.
 
-## 📁 Estructura del Proyecto
+## 🌐 **Demo en Vivo**
+**👉 [Abrir Aplicación](https://jeztorres.github.io/detector-expresiones-app/)**
+
+## ✨ **Características**
+- 🎥 Detección facial en tiempo real con MediaPipe
+- 👁️ Seguimiento preciso de parpadeos
+- 🦅 Detección de movimiento de cejas  
+- 👄 Análisis de apertura de boca
+- 📊 Estadísticas y contadores en tiempo real
+- 📱 Compatible con dispositivos móviles
+- 🎨 Interfaz moderna y responsiva
+
+## � **Uso**
+1. Abre el [enlace de la aplicación](https://jeztorres.github.io/detector-expresiones-app/)
+2. Permite el acceso a la cámara cuando se solicite
+3. Espera la calibración automática (2-3 segundos)
+4. ¡Comienza a hacer gestos faciales y ve las estadísticas en tiempo real!
+
+## 🛠️ **Tecnologías**
+- **MediaPipe Face Mesh** - Detección facial de Google
+- **JavaScript ES6** - Lógica de la aplicación
+- **HTML5 Canvas** - Renderizado de video
+- **CSS3** - Interfaz moderna
+- **WebRTC** - Acceso a cámara web
+
+## 📁 **Estructura del Proyecto**
 
 ```
 detector-expresiones-app/
-├── index.html              # Frontend principal
-├── backend/                 # Servidor Flask
-│   ├── app.py              # Aplicación principal
-│   ├── src/                # Código fuente MVC
-│   │   ├── api/controllers/    # Controladores REST
-│   │   ├── config/             # Configuración
-│   │   ├── models/             # Modelos de datos
-│   │   ├── repositories/       # Acceso a base de datos
-│   │   └── services/           # Lógica de negocio
-│   ├── requirements.txt    # Dependencias Python
-│   ├── test_gestos.py      # Script de pruebas
-│   └── monitor_gestos.py  # Monitoreo en tiempo real
+├── index.html                  # 🌟 Aplicación principal
+├── README.md                   # 📖 Este archivo
+├── .env                        # Configuración de ambiente
+├── backend/                    # 🔧 API REST en Flask
+│   ├── app.py                  # Servidor principal
+│   ├── requirements.txt        # Dependencias Python
+│   ├── test_gestos.py         # Tests unitarios
+│   ├── monitor_gestos.py      # Monitor en tiempo real
+│   └── src/                   # Código fuente MVC
+│       ├── api/controllers/   # Controladores REST
+│       ├── config/           # Configuración
+│       ├── models/           # Modelos de datos
+│       ├── repositories/     # Acceso a base de datos
+│       └── services/         # Lógica de negocio
+└── src/                       # 📦 ARCHIVOS DE DESARROLLO
+    ├── api/client/           # Cliente JavaScript API
+    ├── assets/              # Recursos y archivos estáticos
+    ├── docs/                # Documentación adicional
+    ├── examples/            # Ejemplos de integración
+    └── frontend-old/        # Versiones anteriores del frontend
 ├── frontend/               # Cliente web
 │   └── public/front/       # Archivos estáticos
 │       ├── app.js          # Lógica de detección
