@@ -141,10 +141,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ======= ESTADOS ACTUALES =======
+  // ======= ESTADOS ACTUALES (para detectar transiciones) =======
   let estadoBoca = "cerrada";   // 'abierta' | 'cerrada'
   let estadoCejas = "normal";   // 'arqueadas' | 'normal'
   let estadoParp  = "abierto";  // 'cerrado' | 'abierto'
+  
+  // ======= CONTADORES DE TRANSICIONES =======
+  let transicionesBoca = 0;
+  let transicionesCejas = 0; 
+  let transicionesParpadeo = 0;
 
   // ======= CALIBRACIÓN / PARPADEO =======
   let frameCounter = 0;
@@ -248,8 +253,10 @@ document.addEventListener("DOMContentLoaded", () => {
         framesPorDebajo++;
         if (framesPorDebajo >= FRAMES_CERRADO && refractario === 0) {
           estadoParp = "cerrado";
-          parpadeoCount++; parpadeoCounterEl.textContent = parpadeoCount;
+          transicionesParpadeo++;
+          parpadeoCounterEl.textContent = transicionesParpadeo;
           refractario = REFRACTARIO_FRAMES;
+          console.log(`🔄 TRANSICIÓN Parpadeo: abierto → cerrado`);
           enviarEvento("parpadeo", "cerrado");
         }
       }
@@ -257,7 +264,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (estadoParp === "cerrado") {
         estadoParp = "abierto";
         framesPorDebajo = 0;
-        parpadeoCount++; parpadeoCounterEl.textContent = parpadeoCount;
+        transicionesParpadeo++;
+        parpadeoCounterEl.textContent = transicionesParpadeo;
+        console.log(`🔄 TRANSICIÓN Parpadeo: cerrado → abierto`);
         enviarEvento("parpadeo", "abierto");
       } else {
         framesPorDebajo = 0;
@@ -267,16 +276,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Cejas: 'arqueadas' / 'normal' ---
     const cejaArq = ratioCeja > ratioCejaNeutralPromedio * FACTOR_UMBRAL_CEJA ? "arqueadas" : "normal";
     if (cejaArq !== estadoCejas) {
+      const estadoAnterior = estadoCejas;
       estadoCejas = cejaArq;
-      cejaCount++; cejaCounterEl.textContent = cejaCount;
+      transicionesCejas++;
+      cejaCounterEl.textContent = transicionesCejas;
+      console.log(`🔄 TRANSICIÓN Cejas: ${estadoAnterior} → ${cejaArq}`);
       enviarEvento("cejas", cejaArq);
     }
 
     // --- Boca: 'abierta' / 'cerrada' ---
     const bocaNow = distLabios > UMBRAL_BOCA_ABIERTA ? "abierta" : "cerrada";
     if (bocaNow !== estadoBoca) {
+      const estadoAnterior = estadoBoca;
       estadoBoca = bocaNow;
-      if (bocaNow === "cerrada") { bocaCount++; bocaCounterEl.textContent = bocaCount; }
+      transicionesBoca++;
+      bocaCounterEl.textContent = transicionesBoca;
+      console.log(`🔄 TRANSICIÓN Boca: ${estadoAnterior} → ${bocaNow}`);
       enviarEvento("boca", bocaNow);
     }
   }
@@ -299,18 +314,24 @@ document.addEventListener("DOMContentLoaded", () => {
   async function enviarEvento(tipo, estado) {
     if (!ENDPOINT_GESTOS) {
       // En GitHub Pages, solo mostrar en consola
-      console.log(`🎭 Gesto detectado: ${tipo} - ${estado}`);
+      console.log(`🎭 TRANSICIÓN guardada localmente: ${tipo} → ${estado}`);
       return;
     }
     
     try {
-      await fetch(ENDPOINT_GESTOS, {
+      const response = await fetch(ENDPOINT_GESTOS, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo_gesto: tipo, estado })
       });
+      
+      if (response.ok) {
+        console.log(`💾 TRANSICIÓN guardada en BD: ${tipo} → ${estado}`);
+      } else {
+        console.error(`❌ Error HTTP ${response.status} guardando:`, tipo, estado);
+      }
     } catch (err) {
-      console.error("Error guardando evento:", tipo, estado, err);
+      console.error("❌ Error de red guardando:", tipo, estado, err);
     }
   }
 

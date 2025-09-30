@@ -59,8 +59,17 @@ class GestoService:
 
     def get_stats_last_30_days(self, tipo_gesto: str):
         """
-        Obtiene estadísticas para los últimos 30 días.
+        Obtiene estadísticas para los últimos 30 días usando stored procedures.
         """
-        end_date = date.today()
-        start_date = end_date - timedelta(days=30)
-        return self.get_statistics(tipo_gesto, start_date.isoformat(), end_date.isoformat())
+        try:
+            stats = self.gesto_repository.get_stats_last_30_days(tipo_gesto)
+
+            # Asegurar que las fechas se devuelvan en formato string 'YYYY-MM-DD'.
+            for item in stats:
+                if isinstance(item.get('fecha'), date):
+                    item['fecha'] = item['fecha'].isoformat()
+
+            return stats
+        except Exception as e:
+            print(f"❌ Error en el servicio al obtener estadísticas de últimos 30 días: {e}")
+            return []
