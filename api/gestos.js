@@ -1,103 +1,91 @@
-// --- API MOCK (SIN BACKEND) ---
-// Este script simula la API del backend usando localStorage
-// para que la aplicación sea funcional en GitHub Pages sin
-// necesidad de tener un servidor activo.
+// --- API REAL (CON BACKEND) ---
+// Este script conecta el frontend con el backend de Flask.
 
 (function() {
-  console.log("🚀 API Mock (localStorage) inicializada.");
+  console.log("🚀 API real (backend) inicializada.");
 
-  const DB_CONFIG = {
-    apiUrl: 'http://127.0.0.1:5000/api', // URL del backend (no se usará si falla)
-    useLocalStorage: true // Forzar uso de localStorage
-  };
+  const API_BASE_URL = 'http://127.0.0.1:5000/api';
 
-  // --- HELPERS ---
-  function getDb(tipo) {
-    const dbName = `gestos_${tipo}`;
+  /**
+   * Guarda un gesto en la base de datos a través del backend.
+   * @param {string} tipo - El tipo de gesto (e.g., 'parpadeo').
+   * @param {string} estado - El estado del gesto (e.g., 'cerrado').
+   * @returns {Promise<object>} - El resultado de la API.
+   */
+  async function saveGesto(tipo, estado) {
+    // Solo enviar al backend los eventos significativos para no saturar la BD.
+    if ( (tipo === 'parpadeo' && estado !== 'cerrado') || (tipo === 'cejas' && estado !== 'arqueadas') || (tipo === 'boca' && estado !== 'abierta') ) {
+      return Promise.resolve({ message: "Estado no relevante, no guardado." });
+    }
+
     try {
-      return JSON.parse(localStorage.getItem(dbName) || '[]');
-    } catch (e) {
+      const response = await fetch(`${API_BASE_URL}/gestos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo_gesto: tipo, estado: estado })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error en la API: ${response.statusText}`);
+      }
+
+      console.log(`✅ Gesto '${tipo}: ${estado}' enviado al backend.`);
+      return await response.json();
+
+    } catch (error) {
+      console.error(`❌ Error al guardar gesto: ${error.message}`);
+      // En caso de error, devolver un objeto de error para que la app no se rompa.
+      return { error: error.message };
+    }
+  }
+
+  /**
+   * Obtiene estadísticas de la base de datos para un rango de fechas.
+   * @param {string} tipo - El tipo de gesto.
+   * @param {string} fechaInicio - Fecha de inicio 'YYYY-MM-DD'.
+   * @param {string} fechaFin - Fecha de fin 'YYYY-MM-DD'.
+   * @returns {Promise<Array>} - Una lista con las estadísticas.
+   */
+  async function getStatsByDate(tipo, fechaInicio, fechaFin) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/estadisticas/${tipo}?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error en la API: ${response.statusText}`);
+      }
+
+      console.log(`📊 Estadísticas para '${tipo}' obtenidas del backend.`);
+      return await response.json();
+
+    } catch (error) {
+      console.error(`❌ Error al obtener estadísticas: ${error.message}`);
+      return []; // Devolver un array vacío en caso de error.
+    }
+  }
+
+  /**
+   * Obtiene estadísticas de los últimos 30 días desde el backend.
+   * @param {string} tipo - El tipo de gesto.
+   * @returns {Promise<Array>} - Una lista con las estadísticas.
+   */
+  async function getStatsLast30(tipo) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/estadisticas/${tipo}/ultimos30`);
+
+      if (!response.ok) {
+        throw new Error(`Error en la API: ${response.statusText}`);
+      }
+
+      console.log(`📊 Estadísticas de 30 días para '${tipo}' obtenidas del backend.`);
+      return await response.json();
+
+    } catch (error) {
+      console.error(`❌ Error al obtener estadísticas de 30 días: ${error.message}`);
       return [];
     }
   }
 
-  function saveDb(tipo, data) {
-    const dbName = `gestos_${tipo}`;
-    localStorage.setItem(dbName, JSON.stringify(data));
-  }
-
-  function obtenerFechaLocal(date = new Date()) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  // --- API FUNCTIONS ---
-
-  async function saveGesto(tipo, estado) {
-    // Solo guardar eventos significativos (parpadeo cerrado, ceja arqueada, boca abierta)
-    if ( (tipo === 'parpadeo' && estado !== 'cerrado') || (tipo === 'cejas' && estado !== 'arqueadas') || (tipo === 'boca' && estado !== 'abierta') ) {
-      return Promise.resolve({ message: "Estado no relevante, no guardado." });
-    }
-    
-    console.log(`💾 Guardando gesto: ${tipo} - ${estado}`);
-    const db = getDb(tipo);
-    const newGesto = {
-      id: Date.now(),
-      tipo_gesto: tipo,
-      estado: estado,
-      fecha: obtenerFechaLocal(),
-      timestamp: new Date().toISOString()
-    };
-    db.push(newGesto);
-    saveDb(tipo, db);
-    
-    // Simula una respuesta de API exitosa
-    return Promise.resolve(newGesto);
-  }
-
-  async function getStatsByDate(tipo, fechaInicio, fechaFin) {
-    console.log(`📊 Pidiendo estadísticas para '${tipo}' entre ${fechaInicio} y ${fechaFin}`);
-    const db = getDb(tipo);
-    const stats = {};
-
-    const start = new Date(fechaInicio);
-    const end = new Date(fechaFin);
-
-    db.forEach(gesto => {
-      const gestoDate = new Date(gesto.fecha);
-      
-      // Ajustar para que la comparación de fechas sea inclusiva
-      if (gestoDate >= start && gestoDate <= end) {
-        if (!stats[gesto.fecha]) {
-          stats[gesto.fecha] = 0;
-        }
-        stats[gesto.fecha]++;
-      }
-    });
-
-    const result = Object.keys(stats).map(fecha => ({
-      fecha: fecha,
-      cantidad: stats[fecha]
-    }));
-    
-    console.log(`📊 Resultado para '${tipo}':`, result);
-    return Promise.resolve(result);
-  }
-
-  async function getStatsLast30(tipo) {
-    const hoy = new Date();
-    const hace30dias = new Date();
-    hace30dias.setDate(hoy.getDate() - 30);
-
-    const fechaFin = obtenerFechaLocal(hoy);
-    const fechaInicio = obtenerFechaLocal(hace30dias);
-
-    return getStatsByDate(tipo, fechaInicio, fechaFin);
-  }
-
-  // Exponer la API en el objeto window
+  // Exponer la API en el objeto window para que `index.html` pueda usarla.
   window.GestosAPI = {
     saveGesto,
     getStatsByDate,
