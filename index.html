@@ -66,7 +66,8 @@
   <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;console.log('✅ OpenCV cargado')" onerror="console.error('❌ Error cargando OpenCV')"></script>
   <script>var cvReady=false;</script>
   
-  <!-- API configurada para GitHub Pages y localhost -->
+  <!-- Configuración y API para conectar con el backend -->
+  <script src="app-config.js" onload="console.log('✅ Configuración cargada')" onerror="console.error('❌ Error cargando app-config.js')"></script>
   <script src="api/gestos.js" onload="console.log('✅ Gestos.js cargado')" onerror="console.error('❌ Error cargando gestos.js')"></script>
 </head>
 <body>
@@ -143,10 +144,6 @@
 </div>
 
 <script>
-    // --- CONFIG API ---
-    // Detectar si estamos en GitHub Pages o localhost
-    const isGitHubPages = window.location.hostname.includes('github.io');
-
     // --- FUNCIÓN PARA FECHAS LOCALES (Solución problema zona horaria) ---
     function obtenerFechaLocal() {
       const ahora = new Date();
@@ -168,27 +165,158 @@
       return `${año}-${mes}-${día}`;
     }
 
+    // --- UTILIDADES DE NORMALIZACIÓN ---
+    function normalizarNumeroEntrada(valor) {
+      if (valor === null || valor === undefined) {
+        return 0;
+      }
+      if (typeof valor === 'number') {
+        return Number.isFinite(valor) ? valor : 0;
+      }
+      const numero = Number(valor);
+      return Number.isFinite(numero) ? numero : 0;
+    }
+
+    function extraerCantidad(item) {
+      if (!item || typeof item !== 'object') {
+        return 0;
+      }
+
+      const clavesPreferidas = [
+        'cantidad',
+        'total',
+        'conteo',
+        'total_cambios',
+        'total_transiciones',
+        'total_eventos',
+        'total_gestos',
+        'valor',
+        'count',
+        'sumatoria'
+      ];
+
+      for (const clave of clavesPreferidas) {
+        if (item[clave] !== undefined && item[clave] !== null) {
+          return normalizarNumeroEntrada(item[clave]);
+        }
+      }
+
+      let suma = 0;
+      for (const [clave, valor] of Object.entries(item)) {
+        const claveLower = clave.toLowerCase();
+        if (
+          claveLower.includes('fecha') ||
+          claveLower.includes('hora') ||
+          claveLower.includes('estado') ||
+          claveLower.includes('tipo') ||
+          claveLower.includes('descripcion') ||
+          claveLower.includes('detalle') ||
+          claveLower.endsWith('id')
+        ) {
+          continue;
+        }
+
+        const numero = normalizarNumeroEntrada(valor);
+        if (numero !== 0 || (typeof valor === 'number' && valor === 0)) {
+          suma += numero;
+        }
+      }
+      return suma;
+    }
+
+    function sumarCantidad(dataset) {
+      if (Array.isArray(dataset)) {
+        return dataset.reduce((acum, item) => acum + extraerCantidad(item), 0);
+      }
+      if (dataset && typeof dataset === 'object') {
+        return extraerCantidad(dataset);
+      }
+      return normalizarNumeroEntrada(dataset);
+    }
+
+    function normalizarFechaValor(valor) {
+      if (!valor) {
+        return null;
+      }
+
+      if (valor instanceof Date) {
+        return valor.toISOString().split('T')[0];
+      }
+
+      if (typeof valor === 'string') {
+        const texto = valor.trim();
+        if (!texto) {
+          return null;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+          return texto;
+        }
+
+        const fechaParseada = new Date(texto);
+        if (!Number.isNaN(fechaParseada.valueOf())) {
+          return fechaParseada.toISOString().split('T')[0];
+        }
+
+        return texto;
+      }
+
+      const fechaParseada = new Date(valor);
+      if (!Number.isNaN(fechaParseada.valueOf())) {
+        return fechaParseada.toISOString().split('T')[0];
+      }
+
+      return null;
+    }
+
+    function obtenerFechaRegistro(item) {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const clavesPreferidas = ['fecha', 'dia', 'fecha_evento', 'fecha_registro', 'fecha_historial'];
+      for (const clave of clavesPreferidas) {
+        if (item[clave]) {
+          const fechaNormalizada = normalizarFechaValor(item[clave]);
+          if (fechaNormalizada) {
+            return fechaNormalizada;
+          }
+        }
+      }
+
+      const claveDinamica = Object.keys(item).find(key => key.toLowerCase().includes('fecha'));
+      if (claveDinamica && item[claveDinamica]) {
+        return normalizarFechaValor(item[claveDinamica]);
+      }
+
+      return null;
+    }
+
     // --- DEBUG: Comparar fechas frontend vs backend ---
     async function debugFechas() {
       try {
         const fechaFrontend = obtenerFechaLocal();
-        const response = await fetch('http://127.0.0.1:5000/debug/fecha');
-        const backendData = await response.json();
-        
+        const backendData = await window.GestosAPI.getServerDate();
+
+        if (!backendData) {
+          console.warn('⚠️ No se pudo obtener la fecha del backend para depuración.');
+          return null;
+        }
+
         console.log('🔍 COMPARACIÓN DE FECHAS:');
         console.log(`📅 Frontend (local): ${fechaFrontend}`);
         console.log(`📅 Backend (servidor): ${backendData.fecha_backend}`);
         console.log(`🕒 Hora backend: ${backendData.hora_backend}`);
-        
+
         if (fechaFrontend !== backendData.fecha_backend) {
           console.warn('⚠️  PROBLEMA: Las fechas no coinciden!');
           console.log('📊 Esto puede causar problemas en las estadísticas');
         } else {
           console.log('✅ Las fechas coinciden correctamente');
         }
-        
+
         return { frontend: fechaFrontend, backend: backendData.fecha_backend, coinciden: fechaFrontend === backendData.fecha_backend };
-        
+
       } catch (error) {
         console.error('❌ Error comparando fechas:', error);
         return null;
@@ -525,11 +653,11 @@
         const statsParpadeo = await window.GestosAPI.getStatsByDate('parpadeo', hoy, hoy);
         const statsCejas = await window.GestosAPI.getStatsByDate('cejas', hoy, hoy);
         const statsBoca = await window.GestosAPI.getStatsByDate('boca', hoy, hoy);
-        
+
         // Actualizar contadores totales de hoy
-        parpadeoTotal = statsParpadeo.reduce((sum, item) => sum + item.cantidad, 0);
-        cejaTotal = statsCejas.reduce((sum, item) => sum + item.cantidad, 0);
-        bocaTotal = statsBoca.reduce((sum, item) => sum + item.cantidad, 0);
+        parpadeoTotal = sumarCantidad(statsParpadeo);
+        cejaTotal = sumarCantidad(statsCejas);
+        bocaTotal = sumarCantidad(statsBoca);
         
         parpadeoTotalEl.textContent = parpadeoTotal;
         cejaTotalEl.textContent = cejaTotal;
@@ -557,9 +685,9 @@
         
         console.log('📊 Estadísticas de hoy recibidas:', statsHoy);
         
-        const parpadeoHoy = Array.isArray(statsHoy[0]) ? statsHoy[0].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const cejasHoy = Array.isArray(statsHoy[1]) ? statsHoy[1].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const bocaHoy = Array.isArray(statsHoy[2]) ? statsHoy[2].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
+        const parpadeoHoy = sumarCantidad(statsHoy[0]);
+        const cejasHoy = sumarCantidad(statsHoy[1]);
+        const bocaHoy = sumarCantidad(statsHoy[2]);
         
         document.getElementById('stats-hoy').innerHTML = `
           <div>👁️ Parpadeos: <span class="stat-number">${parpadeoHoy}</span></div>
@@ -575,9 +703,9 @@
           window.GestosAPI.getStatsByDate('boca', hace7dias, hoy)
         ]);
         
-        const parpadeo7dias = Array.isArray(stats7dias[0]) ? stats7dias[0].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const cejas7dias = Array.isArray(stats7dias[1]) ? stats7dias[1].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const boca7dias = Array.isArray(stats7dias[2]) ? stats7dias[2].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
+        const parpadeo7dias = sumarCantidad(stats7dias[0]);
+        const cejas7dias = sumarCantidad(stats7dias[1]);
+        const boca7dias = sumarCantidad(stats7dias[2]);
         
         document.getElementById('stats-semana').innerHTML = `
           <div>👁️ Parpadeos: <span class="stat-number">${parpadeo7dias}</span></div>
@@ -592,9 +720,9 @@
           window.GestosAPI.getStatsLast30('boca')
         ]);
         
-        const parpadeo30dias = Array.isArray(stats30[0]) ? stats30[0].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const cejas30dias = Array.isArray(stats30[1]) ? stats30[1].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const boca30dias = Array.isArray(stats30[2]) ? stats30[2].reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
+        const parpadeo30dias = sumarCantidad(stats30[0]);
+        const cejas30dias = sumarCantidad(stats30[1]);
+        const boca30dias = sumarCantidad(stats30[2]);
         
         document.getElementById('stats-mes').innerHTML = `
           <div>👁️ Parpadeos: <span class="stat-number">${parpadeo30dias}</span></div>
@@ -630,14 +758,22 @@
         
         historial.forEach((tipoStats, index) => {
           const tipo = ['parpadeo', 'cejas', 'boca'][index];
-          tipoStats.forEach(stat => {
-            if (!fechas[stat.fecha]) {
-              fechas[stat.fecha] = { parpadeo: 0, cejas: 0, boca: 0 };
+          const listaNormalizada = Array.isArray(tipoStats) ? tipoStats : (tipoStats ? [tipoStats] : []);
+
+          listaNormalizada.forEach(stat => {
+            const fechaRegistro = obtenerFechaRegistro(stat);
+            if (!fechaRegistro) {
+              return;
             }
-            fechas[stat.fecha][tipo] += stat.cantidad;
+
+            if (!fechas[fechaRegistro]) {
+              fechas[fechaRegistro] = { parpadeo: 0, cejas: 0, boca: 0 };
+            }
+
+            fechas[fechaRegistro][tipo] += extraerCantidad(stat);
           });
         });
-        
+
         // Mostrar historial
         const fechasOrdenadas = Object.keys(fechas).sort((a, b) => new Date(b) - new Date(a));
         
@@ -649,13 +785,13 @@
         const historialHTML = fechasOrdenadas.map(fecha => {
           const stats = fechas[fecha];
           const total = stats.parpadeo + stats.cejas + stats.boca;
-          const fechaObj = new Date(fecha);
+          const fechaObj = new Date(`${fecha}T00:00:00`);
           const esHoy = fecha === hoy;
           
           return `
             <div class="history-item" style="${esHoy ? 'border-left: 3px solid #58a6ff;' : ''}">
               <div class="history-date">
-                ${fechaObj.toLocaleDateString('es-ES')}
+                ${Number.isNaN(fechaObj.valueOf()) ? fecha : fechaObj.toLocaleDateString('es-ES')}
                 ${esHoy ? '<span style="color:#58a6ff; font-size:10px;"> (HOY)</span>' : ''}
               </div>
               <div class="history-stats">
@@ -693,12 +829,12 @@
         const statsParpadeo = await window.GestosAPI.getStatsByDate('parpadeo', hoy, hoy);
         const statsCejas = await window.GestosAPI.getStatsByDate('cejas', hoy, hoy);
         const statsBoca = await window.GestosAPI.getStatsByDate('boca', hoy, hoy);
-        
+
         console.log('📊 Datos recibidos:', { statsParpadeo, statsCejas, statsBoca });
-        
-        parpadeoTotal = statsParpadeo.reduce((sum, item) => sum + item.cantidad, 0);
-        cejaTotal = statsCejas.reduce((sum, item) => sum + item.cantidad, 0);
-        bocaTotal = statsBoca.reduce((sum, item) => sum + item.cantidad, 0);
+
+        parpadeoTotal = sumarCantidad(statsParpadeo);
+        cejaTotal = sumarCantidad(statsCejas);
+        bocaTotal = sumarCantidad(statsBoca);
         
         console.log('🎯 Totales calculados:', { parpadeoTotal, cejaTotal, bocaTotal });
         
@@ -749,10 +885,10 @@
           window.GestosAPI.getStatsByDate('cejas', hoy, hoy),
           window.GestosAPI.getStatsByDate('boca', hoy, hoy)
         ]);
-        
-        const parpadeoHoy = Array.isArray(parpadeoStats) ? parpadeoStats.reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const cejasHoy = Array.isArray(cejasStats) ? cejasStats.reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
-        const bocaHoy = Array.isArray(bocaStats) ? bocaStats.reduce((s,i) => s + (i.cantidad || 0), 0) : 0;
+
+        const parpadeoHoy = sumarCantidad(parpadeoStats);
+        const cejasHoy = sumarCantidad(cejasStats);
+        const bocaHoy = sumarCantidad(bocaStats);
         
         console.log('🎯 Nuevos totales "Hoy":', { parpadeoHoy, cejasHoy, bocaHoy });
         

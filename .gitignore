@@ -27,7 +27,9 @@ ENV/
 env/
 
 # Archivos de configuración sensibles
-.env
+# (El archivo `.env` se versiona para mantener la configuración de despliegue en GitHub Pages)
+.env.local
+.env.*.local
 
 # Archivos de VS Code
 .vscode/

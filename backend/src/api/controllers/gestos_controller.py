@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
 from src.services.gesto_service import GestoService
-from datetime import date, timedelta
 
 # Crear un Blueprint, que es un conjunto de rutas que se pueden registrar en la aplicación principal.
 # Esto ayuda a mantener el código organizado.
@@ -45,7 +44,6 @@ def get_stats(tipo_gesto):
 
     # Llama al servicio para obtener las estadísticas.
     stats = gesto_service.get_statistics(tipo_gesto, start_date_str, end_date_str)
-
     return jsonify(stats), 200
 
 @gestos_controller.route('/estadisticas/<string:tipo_gesto>/ultimos30', methods=['GET'])
@@ -55,7 +53,6 @@ def get_stats_last_30(tipo_gesto):
     """
     # Llama al servicio para obtener las estadísticas de los últimos 30 días.
     stats = gesto_service.get_stats_last_30_days(tipo_gesto)
-
     return jsonify(stats), 200
 
 # Endpoint de prueba para verificar que el backend está funcionando.

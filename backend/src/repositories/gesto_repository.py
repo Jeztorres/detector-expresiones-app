@@ -1,6 +1,6 @@
 from src.config.database import Database
-from src.models.gesto import Gesto
-from datetime import date
+from datetime import date, datetime
+from decimal import Decimal
 
 class GestoRepository:
     """
@@ -24,20 +24,30 @@ class GestoRepository:
             # Si el tipo de gesto no es válido, se lanza un error.
             raise ValueError(f"Tipo de gesto no válido: {tipo_gesto}")
 
-    def _get_table_name(self, tipo_gesto):
-        """
-        Devuelve el nombre de la tabla de historial basado en el tipo de gesto.
-        Esto permite que la lógica funcione para parpadeos, cejas y boca.
-        """
-        if tipo_gesto == 'parpadeo':
-            return 'parpadeos_hist'
-        elif tipo_gesto == 'cejas':
-            return 'cejas_hist'
-        elif tipo_gesto == 'boca':
-            return 'boca_hist'
-        else:
-            # Si el tipo de gesto no es válido, se lanza un error.
-            raise ValueError(f"Tipo de gesto no válido: {tipo_gesto}")
+    def _consume_remaining_results(self, cursor):
+        """Consume cualquier result set pendiente después de ejecutar un stored procedure."""
+        if not cursor:
+            return
+        try:
+            while cursor.nextset():
+                cursor.fetchall()
+        except Exception:
+            pass
+
+    def _normalize_rows(self, rows):
+        """Convierte fechas y números a tipos compatibles con JSON."""
+        normalizados = []
+        for row in rows or []:
+            normalizado = {}
+            for key, value in row.items():
+                if isinstance(value, (date, datetime)):
+                    normalizado[key] = value.isoformat()
+                elif isinstance(value, Decimal):
+                    normalizado[key] = int(value)
+                else:
+                    normalizado[key] = value
+            normalizados.append(normalizado)
+        return normalizados
 
     def save(self, tipo_gesto: str, estado: str):
         """
@@ -117,13 +127,11 @@ class GestoRepository:
             if connection:
                 cursor = connection.cursor(dictionary=True)
                 cursor.execute(sql, (start_date, end_date))
-                results = cursor.fetchall()
-                
-                # Consumir todos los resultados y cerrar cursor adecuadamente
-                cursor.fetchall()  # Asegurar que no queden resultados pendientes
-                
+                results = cursor.fetchall() or []
+                self._consume_remaining_results(cursor)
+
                 print(f"📊 Estadísticas detalladas obtenidas para '{tipo_gesto}' entre {start_date} y {end_date}.")
-                return results
+                return self._normalize_rows(results)
         except Exception as e:
             print(f"❌ Error al obtener estadísticas: {e}")
             return []
@@ -171,16 +179,11 @@ class GestoRepository:
             if connection:
                 cursor = connection.cursor(dictionary=True)
                 cursor.execute(sql)
-                results = cursor.fetchall()
-                
-                # Consumir todos los resultados y cerrar cursor adecuadamente
-                try:
-                    cursor.fetchall()  # Asegurar que no queden resultados pendientes
-                except:
-                    pass
-                
+                results = cursor.fetchall() or []
+                self._consume_remaining_results(cursor)
+
                 print(f"📊 Estadísticas últimos 30 días obtenidas para '{tipo_gesto}'.")
-                return results
+                return self._normalize_rows(results)
         except Exception as e:
             print(f"❌ Error al obtener estadísticas de últimos 30 días: {e}")
             return []
