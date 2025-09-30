@@ -276,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const bocaNow = distLabios > UMBRAL_BOCA_ABIERTA ? "abierta" : "cerrada";
     if (bocaNow !== estadoBoca) {
       estadoBoca = bocaNow;
-      bocaCount++; bocaCounterEl.textContent = bocaCount;
+      if (bocaNow === "cerrada") { bocaCount++; bocaCounterEl.textContent = bocaCount; }
       enviarEvento("boca", bocaNow);
     }
   }
