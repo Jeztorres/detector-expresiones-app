@@ -1,21 +1,42 @@
 // --- API REAL (CON BACKEND) ---
-// Este script conecta el frontend con el backend de Flask.
-// Funciona tanto en localhost como en GitHub Pages.
+// Este script conecta el frontend con el backend de Flask utilizando la configuración
+// definida en `app-config.js`. Funciona tanto en GitHub Pages como en entornos locales.
 
 (function() {
-  console.log("🚀 API real (backend) inicializada.");
+  const FALLBACK_BACKEND_URL = 'http://127.0.0.1:5000';
+  const configuredBackend = window.APP_CONFIG && window.APP_CONFIG.BACKEND_URL;
 
-  // Detectar si estamos en GitHub Pages o en localhost
-  const isGitHubPages = window.location.hostname.includes('github.io') || 
-                       window.location.hostname.includes('github.com');
-  
-  // Configurar URL del backend según el entorno
-  const API_BASE_URL = isGitHubPages 
-    ? 'https://detector-expresiones-backend.herokuapp.com/api'  // URL de tu backend en Heroku
-    : 'http://127.0.0.1:5000/api';
-  
-  console.log(`🌐 Entorno detectado: ${isGitHubPages ? 'GitHub Pages' : 'Local'}`);
-  console.log(`🔗 API URL: ${API_BASE_URL}`);
+  const backendBaseUrl = (configuredBackend || FALLBACK_BACKEND_URL).replace(/\/$/, '');
+  const API_BASE_URL = `${backendBaseUrl}/api`;
+
+  console.log('🚀 API real (backend) inicializada.');
+  console.log(`🌐 Backend base URL: ${backendBaseUrl}`);
+  console.log(`🔗 Endpoint API: ${API_BASE_URL}`);
+
+  async function request(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    const fetchOptions = {
+      method: 'GET',
+      ...options,
+      headers
+    };
+
+    try {
+      const response = await fetch(url, fetchOptions);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`❌ Error en la solicitud ${url}:`, error);
+      throw error;
+    }
+  }
 
   /**
    * Guarda un gesto en la base de datos a través del backend.
@@ -24,26 +45,14 @@
    * @returns {Promise<object>} - El resultado de la API.
    */
   async function saveGesto(tipo, estado) {
-    // Se envían todos los estados al backend.
-    // La base de datos se encarga de gestionar las transiciones (solo guarda si el estado cambia).
-
     try {
-      const response = await fetch(`${API_BASE_URL}/gestos`, {
+      const result = await request('/gestos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tipo_gesto: tipo, estado: estado })
+        body: JSON.stringify({ tipo_gesto: tipo, estado })
       });
-
-      if (!response.ok) {
-        throw new Error(`Error en la API: ${response.statusText}`);
-      }
-
       console.log(`✅ Gesto '${tipo}: ${estado}' enviado al backend.`);
-      return await response.json();
-
+      return result;
     } catch (error) {
-      console.error(`❌ Error al guardar gesto: ${error.message}`);
-      // En caso de error, devolver un objeto de error para que la app no se rompa.
       return { error: error.message };
     }
   }
@@ -57,18 +66,13 @@
    */
   async function getStatsByDate(tipo, fechaInicio, fechaFin) {
     try {
-      const response = await fetch(`${API_BASE_URL}/estadisticas/${tipo}?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`);
-      
-      if (!response.ok) {
-        throw new Error(`Error en la API: ${response.statusText}`);
-      }
-
+      const query = `?fecha_inicio=${encodeURIComponent(fechaInicio)}&fecha_fin=${encodeURIComponent(fechaFin)}`;
+      const result = await request(`/estadisticas/${tipo}${query}`);
       console.log(`📊 Estadísticas para '${tipo}' obtenidas del backend.`);
-      return await response.json();
-
+      return result;
     } catch (error) {
       console.error(`❌ Error al obtener estadísticas: ${error.message}`);
-      return []; // Devolver un array vacío en caso de error.
+      return [];
     }
   }
 
@@ -79,18 +83,29 @@
    */
   async function getStatsLast30(tipo) {
     try {
-      const response = await fetch(`${API_BASE_URL}/estadisticas/${tipo}/ultimos30`);
-
-      if (!response.ok) {
-        throw new Error(`Error en la API: ${response.statusText}`);
-      }
-
+      const result = await request(`/estadisticas/${tipo}/ultimos30`);
       console.log(`📊 Estadísticas de 30 días para '${tipo}' obtenidas del backend.`);
-      return await response.json();
-
+      return result;
     } catch (error) {
       console.error(`❌ Error al obtener estadísticas de 30 días: ${error.message}`);
       return [];
+    }
+  }
+
+  /**
+   * Obtiene la fecha y hora del backend para depuración.
+   * @returns {Promise<object|null>} - Información de fecha del servidor.
+   */
+  async function getServerDate() {
+    try {
+      const response = await fetch(`${backendBaseUrl}/debug/fecha`);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error(`❌ Error obteniendo fecha del backend: ${error.message}`);
+      return null;
     }
   }
 
@@ -98,7 +113,9 @@
   window.GestosAPI = {
     saveGesto,
     getStatsByDate,
-    getStatsLast30
+    getStatsLast30,
+    getServerDate,
+    getBackendBaseUrl: () => backendBaseUrl
   };
 
 })();

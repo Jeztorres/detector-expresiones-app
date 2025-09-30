@@ -1,5 +1,6 @@
 from src.repositories.gesto_repository import GestoRepository
-from datetime import date, timedelta
+from datetime import date
+from decimal import Decimal
 
 class GestoService:
     """
@@ -49,8 +50,12 @@ class GestoService:
 
             # Asegura que la fecha se devuelva en formato string 'YYYY-MM-DD'.
             for item in stats:
-                if isinstance(item['fecha'], date):
-                    item['fecha'] = item['fecha'].isoformat()
+                fecha = item.get('fecha')
+                if isinstance(fecha, date):
+                    item['fecha'] = fecha.isoformat()
+                cantidad = item.get('cantidad')
+                if isinstance(cantidad, Decimal):
+                    item['cantidad'] = int(cantidad)
 
             return stats
         except Exception as e:
@@ -66,8 +71,12 @@ class GestoService:
 
             # Asegurar que las fechas se devuelvan en formato string 'YYYY-MM-DD'.
             for item in stats:
-                if isinstance(item.get('fecha'), date):
-                    item['fecha'] = item['fecha'].isoformat()
+                fecha = item.get('fecha')
+                if isinstance(fecha, date):
+                    item['fecha'] = fecha.isoformat()
+                cantidad = item.get('cantidad')
+                if isinstance(cantidad, Decimal):
+                    item['cantidad'] = int(cantidad)
 
             return stats
         except Exception as e:

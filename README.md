@@ -1,145 +1,100 @@
 # 🎭 Detector de Expresiones Faciales
 
-Una aplicación web de inteligencia artificial que detecta gestos faciales en tiempo real usando MediaPipe.
+Aplicación web que detecta parpadeos, cejas y boca en tiempo real usando MediaPipe Face Mesh. El frontend vive en GitHub Pages y se conecta a un backend Flask que guarda los datos en MySQL.
 
-## 🌐 **Demo en Vivo**
-**👉 [Abrir Aplicación](https://jeztorres.github.io/detector-expresiones-app/)**
+## ✨ Características
 
-## ✨ **Características**
-- 🎥 Detección facial en tiempo real con MediaPipe
-- 👁️ Seguimiento preciso de parpadeos
-- 🦅 Detección de movimiento de cejas  
-- 👄 Análisis de apertura de boca
-- 📊 Estadísticas y contadores en tiempo real
-- 📱 Compatible con dispositivos móviles
-- 🎨 Interfaz moderna y responsiva
+- 🎥 Detección facial en tiempo real desde el navegador
+- 📊 Conteos por gesto, historial diario y estadísticas (hoy / 7 días / 30 días)
+- 🗄️ Persistencia en MySQL utilizando stored procedures existentes
+- 🌐 Frontend estático compatible con GitHub Pages
+- 🔌 Backend Flask con pool de conexiones a MySQL
 
-## � **Uso**
-1. Abre el [enlace de la aplicación](https://jeztorres.github.io/detector-expresiones-app/)
-2. Permite el acceso a la cámara cuando se solicite
-3. Espera la calibración automática (2-3 segundos)
-4. ¡Comienza a hacer gestos faciales y ve las estadísticas en tiempo real!
+## 🚀 Requisitos
 
-## 🛠️ **Tecnologías**
-- **MediaPipe Face Mesh** - Detección facial de Google
-- **JavaScript ES6** - Lógica de la aplicación
-- **HTML5 Canvas** - Renderizado de video
-- **CSS3** - Interfaz moderna
-- **WebRTC** - Acceso a cámara web
+- Python 3.9+
+- MySQL 8+
+- Acceso a cámara web desde el navegador
 
-## 📁 **Estructura del Proyecto**
+## ⚙️ Configuración
+
+1. **Variables de entorno**
+   - Edita el archivo `.env` en la raíz con los datos de tu base MySQL. El repositorio ya incluye la configuración compartida:
+     ```env
+     DB_HOST=127.0.0.1
+     DB_PORT=3306
+     DB_USER=root
+     DB_PASSWORD=Clave.Nueva_2025!
+     DB_NAME=gestos_db
+     PORT=5000
+     DEBUG=true
+     ```
+   - Si despliegas el backend en otra URL, actualiza `app-config.js` para que `BACKEND_URL` apunte allí.
+
+2. **Instalar dependencias del backend**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+
+3. **Ejecutar el backend**
+   ```bash
+   python app.py
+   ```
+   Esto levantará la API en `http://127.0.0.1:5000` (configurable desde `.env`).
+
+4. **Abrir el frontend**
+   - **Producción**: https://jeztorres.github.io/detector-expresiones-app/
+   - **Local**: abre `index.html` con Live Server o cualquier servidor estático.
+
+## 🔗 Endpoints principales
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `POST` | `/api/gestos` | Guarda un evento de gesto (usa stored procedures para evitar duplicados). |
+| `GET`  | `/api/estadisticas/<tipo>?fecha_inicio=YYYY-MM-DD&fecha_fin=YYYY-MM-DD` | Devuelve estadísticas por rango de fechas. |
+| `GET`  | `/api/estadisticas/<tipo>/ultimos30` | Estadísticas de los últimos 30 días. |
+| `GET`  | `/api/health` | Verifica que la API esté funcionando. |
+| `GET`  | `/debug/fecha` | Devuelve fecha/hora del servidor para depuración de diferencias horario. |
+
+## 🧩 Estructura
 
 ```
-detector-expresiones-app/
-├── index.html                  # 🌟 Aplicación principal
-├── README.md                   # 📖 Este archivo
-├── .env                        # Configuración de ambiente
-├── backend/                    # 🔧 API REST en Flask
-│   ├── app.py                  # Servidor principal
-│   ├── requirements.txt        # Dependencias Python
-│   ├── test_gestos.py         # Tests unitarios
-│   ├── monitor_gestos.py      # Monitor en tiempo real
-│   └── src/                   # Código fuente MVC
-│       ├── api/controllers/   # Controladores REST
-│       ├── config/           # Configuración
-│       ├── models/           # Modelos de datos
-│       ├── repositories/     # Acceso a base de datos
-│       └── services/         # Lógica de negocio
-└── src/                       # 📦 ARCHIVOS DE DESARROLLO
-    ├── api/client/           # Cliente JavaScript API
-    ├── assets/              # Recursos y archivos estáticos
-    ├── docs/                # Documentación adicional
-    ├── examples/            # Ejemplos de integración
-    └── frontend-old/        # Versiones anteriores del frontend
-├── frontend/               # Cliente web
-│   └── public/front/       # Archivos estáticos
-│       ├── app.js          # Lógica de detección
-│       └── haarcascade_*.xml # Modelos OpenCV
-└── README.md               # Documentación
+.
+├── index.html          # Frontend principal
+├── app-config.js       # URL del backend para el frontend
+├── api/gestos.js       # Cliente JS que consume la API Flask
+├── backend/
+│   ├── app.py          # Servidor Flask
+│   └── src/
+│       ├── api/        # Controladores
+│       ├── config/     # Conexión a base de datos
+│       ├── repositories/ # Acceso a datos
+│       └── services/   # Lógica de negocio
+└── .env                # Configuración de base de datos y servidor
 ```
 
-## 🚀 Características
+## 📈 Estadísticas & Historial
 
-- **Detección en tiempo real** de 3 tipos de gestos:
-  - 👁️ **Parpadeos** (abierto/cerrado)
-  - 🤨 **Cejas** (arqueadas/normal)
-  - 😮 **Boca** (abierta/cerrada)
+- **Hoy**: se consulta el rango `[fecha_actual, fecha_actual]`.
+- **7 días**: rango `[hoy-6, hoy]`.
+- **30 días**: se usan stored procedures especializados (`sp_resumen_*_ultimos_30`).
+- **Historial diario**: el frontend agrupa la respuesta de `/api/estadisticas/<tipo>` por fecha.
 
-- **Tecnologías**:
-  - **Frontend**: HTML5, JavaScript, MediaPipe Face Mesh
-  - **Backend**: Python Flask, MySQL
-  - **Detección**: Algoritmos EAR (Eye Aspect Ratio)
-  - **Arquitectura**: MVC + Repository + Service Layer
+## 🛠️ Notas de despliegue
 
-## 🛠️ Instalación y Uso
+- El frontend en GitHub Pages puede consumir un backend remoto siempre que `BACKEND_URL` use HTTPS o `http://127.0.0.1` (permitido por navegadores para localhost).
+- Asegúrate de habilitar CORS en el backend (ya configurado con Flask-CORS).
+- Mantén el backend y la base de datos encendidos para que las estadísticas se carguen correctamente.
 
-### 1. Configurar Backend
+## ✅ Verificaciones rápidas
+
 ```bash
-cd backend
-pip install -r requirements.txt
-python app.py
+# Estado del backend
+curl http://127.0.0.1:5000/api/health
+
+# Fecha/hora del servidor
+curl http://127.0.0.1:5000/debug/fecha
 ```
 
-### 2. Acceder al Frontend
-Abre `index.html` en tu navegador o accede a:
-- **Local**: http://localhost:5000
-- **GitHub Pages**: https://jeztorres.github.io/detector-expresiones-app/
-
-### 3. Monitorear Gestos (Opcional)
-```bash
-cd backend
-python monitor_gestos.py
-```
-
-## 📊 API Endpoints
-
-- **POST** `/api/gestos` - Registrar gesto
-- **GET** `/api/gestos` - Obtener historial
-- **GET** `/api/estadisticas/gesto` - Estadísticas por fecha
-- **GET** `/health` - Health check
-
-## 🗄️ Base de Datos
-
-El sistema guarda automáticamente todos los gestos en MySQL:
-- `parpadeos_hist` - Historial de parpadeos
-- `cejas_hist` - Historial de cejas
-- `boca_hist` - Historial de boca
-
-## 🎯 Uso
-
-1. **Permite acceso a la cámara** cuando te lo solicite
-2. **Espera la calibración** (100 frames iniciales)
-3. **Haz gestos** y observa la detección en tiempo real
-4. **Los datos se guardan automáticamente** en la base de datos
-
-## 🔧 Desarrollo
-
-### Estructura MVC
-- **Models**: Definición de entidades (`gesto.py`)
-- **Views**: Frontend HTML/JS (`index.html`, `app.js`)
-- **Controllers**: Endpoints REST (`gestos_controller.py`)
-- **Services**: Lógica de negocio (`gesto_service.py`)
-- **Repositories**: Acceso a datos (`gesto_repository.py`)
-
-### Scripts Útiles
-- `test_gestos.py` - Probar guardado de gestos
-- `monitor_gestos.py` - Monitoreo en tiempo real
-- `test_db.py` - Verificar conexión a BD
-
-## 📈 Estadísticas
-
-El sistema incluye análisis de:
-- Conteo de gestos por tipo
-- Historial temporal
-- Estadísticas por fecha
-- Monitoreo en tiempo real
-
-## 🌐 Despliegue
-
-- **GitHub Pages**: Frontend estático
-- **Backend**: Servidor Flask local o en la nube
-- **Base de Datos**: MySQL con Stored Procedures
-
----
-
-**¡Sistema completo de detección de gestos faciales con arquitectura profesional!** 🎉
+¡Listo! Con el backend conectado a tu MySQL y el frontend apuntando a `BACKEND_URL`, tendrás el conteo, estadísticas y historial funcionando en tiempo real. 🎉

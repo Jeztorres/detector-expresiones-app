@@ -66,7 +66,8 @@
   <script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;console.log('✅ OpenCV cargado')" onerror="console.error('❌ Error cargando OpenCV')"></script>
   <script>var cvReady=false;</script>
   
-  <!-- API configurada para GitHub Pages y localhost -->
+  <!-- Configuración y API para conectar con el backend -->
+  <script src="app-config.js" onload="console.log('✅ Configuración cargada')" onerror="console.error('❌ Error cargando app-config.js')"></script>
   <script src="api/gestos.js" onload="console.log('✅ Gestos.js cargado')" onerror="console.error('❌ Error cargando gestos.js')"></script>
 </head>
 <body>
@@ -143,10 +144,6 @@
 </div>
 
 <script>
-    // --- CONFIG API ---
-    // Detectar si estamos en GitHub Pages o localhost
-    const isGitHubPages = window.location.hostname.includes('github.io');
-
     // --- FUNCIÓN PARA FECHAS LOCALES (Solución problema zona horaria) ---
     function obtenerFechaLocal() {
       const ahora = new Date();
@@ -172,23 +169,27 @@
     async function debugFechas() {
       try {
         const fechaFrontend = obtenerFechaLocal();
-        const response = await fetch('http://127.0.0.1:5000/debug/fecha');
-        const backendData = await response.json();
-        
+        const backendData = await window.GestosAPI.getServerDate();
+
+        if (!backendData) {
+          console.warn('⚠️ No se pudo obtener la fecha del backend para depuración.');
+          return null;
+        }
+
         console.log('🔍 COMPARACIÓN DE FECHAS:');
         console.log(`📅 Frontend (local): ${fechaFrontend}`);
         console.log(`📅 Backend (servidor): ${backendData.fecha_backend}`);
         console.log(`🕒 Hora backend: ${backendData.hora_backend}`);
-        
+
         if (fechaFrontend !== backendData.fecha_backend) {
           console.warn('⚠️  PROBLEMA: Las fechas no coinciden!');
           console.log('📊 Esto puede causar problemas en las estadísticas');
         } else {
           console.log('✅ Las fechas coinciden correctamente');
         }
-        
+
         return { frontend: fechaFrontend, backend: backendData.fecha_backend, coinciden: fechaFrontend === backendData.fecha_backend };
-        
+
       } catch (error) {
         console.error('❌ Error comparando fechas:', error);
         return null;
