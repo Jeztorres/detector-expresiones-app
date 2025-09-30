@@ -395,7 +395,7 @@
         ultimoStatusEl.textContent = `${tipo}: ${estado}`;
         
         try {
-          const gesto = await window.GestosAPI.save(tipo, estado);
+          const gesto = await window.GestosAPI.saveGesto(tipo, estado);
           console.log(`✅ Gesto guardado: ${tipo} - ${estado}`);
           
           // Actualizar totales después de guardar (panel izquierdo)
