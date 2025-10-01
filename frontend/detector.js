@@ -452,7 +452,8 @@ class GestureDetector {
         console.log(`📊 CONTADOR CEJAS ARQUEADAS: ${this.counters.cejasArqueadas}`);
         this.updateCounters();
       } else if (finalState === 'normales') {
-        // Incrementar contadores para normales
+        // Incrementar contadores para normales - CORREGIDO: ahora también cuenta transiciones
+        this.counters.cejas++;
         this.counters.cejasNormales++;
         this.counters.cejaTotal++;
         console.log(`📊 CONTADOR CEJAS NORMALES: ${this.counters.cejasNormales}`);
