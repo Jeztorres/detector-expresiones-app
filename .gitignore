@@ -1,0 +1,53 @@
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Entorno virtual
+.venv/
+venv/
+ENV/
+env/
+
+# Archivos de configuración sensibles
+# (El archivo `.env` se versiona para mantener la configuración de despliegue en GitHub Pages)
+.env.local
+.env.*.local
+
+# Archivos de VS Code
+.vscode/
+*.code-workspace
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Backend local (no para GitHub Pages)
+local-backend/
+
+# Archivos de diagnóstico
+diagnostico.html

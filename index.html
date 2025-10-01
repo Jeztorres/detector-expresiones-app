@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="utf-8" />
+	<title>Detector de Expresiones Faciales</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<meta name="description" content="Aplicación web para detección de gestos faciales en tiempo real">
+	<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+	<meta http-equiv="Pragma" content="no-cache">
+	<meta http-equiv="Expires" content="0">
+	<style>
+		body{font-family: system-ui, Arial; margin:0; padding:12px; background:#0b0f14; color:#e8eef5; height:100vh; overflow:hidden}
+		.container{height:100vh; display:flex; flex-direction:column}
+		.header{text-align:center; margin-bottom:16px; flex-shrink:0}
+		.header h1{color:#58a6ff; margin:0; font-size:28px}
+    
+		.nav-tabs{display:flex; justify-content:center; margin-bottom:16px; gap:8px; flex-shrink:0}
+		.nav-tab{padding:8px 20px; background:#161b22; border:1px solid #30363d; border-radius:8px; cursor:pointer; transition:all 0.3s; font-size:14px}
+		.nav-tab:hover{background:#21262d}
+		.nav-tab.active{background:#58a6ff; color:#0b0f14; font-weight:bold}
+    
+		.tab-content{display:none; flex:1; overflow:hidden}
+		.tab-content.active{display:flex; flex-direction:column}
+    
+		.detector-layout{display:flex; gap:12px; height:100%; overflow:hidden}
+		.cameras-row{display:flex; gap:12px; flex:2}
+		.video-card, .canvas-card{background:#161b22; padding:16px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.4); border:1px solid #30363d; flex:1; display:flex; flex-direction:column}
+		.stats-panel{background:#161b22; padding:16px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.4); border:1px solid #30363d; flex:1; display:flex; flex-direction:column; max-width:280px; min-width:250px}
+		video, canvas{border-radius:8px; border:2px solid #30363d; width:100%; height:350px; object-fit:cover}
+		.row{display:flex; gap:12px; height:100%; overflow:hidden}
+		.card{background:#161b22; padding:16px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.4); border:1px solid #30363d; flex:1; display:flex; flex-direction:column}
+		.kpi{font-size:12px; opacity:.85; margin:4px 0}
+		.kpi b{font-size:18px; color:#58a6ff}
+		#status{margin-top:8px; color:#9ad1ff; font-weight:500; font-size:12px}
+    
+		.stats-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; height:100%; overflow:hidden}
+		.stat-card{background:#161b22; padding:12px; border-radius:8px; border:1px solid #30363d; overflow:hidden}
+		.stat-title{color:#58a6ff; font-weight:bold; margin-bottom:8px; font-size:14px}
+		.stat-number{font-size:24px; color:#58a6ff; font-weight:bold}
+		.stat-label{opacity:0.8; font-size:12px}
+    
+		.history-container{height:100%; overflow:hidden; display:flex; flex-direction:column}
+		.history-scroll{flex:1; overflow-y:auto; padding-right:8px}
+		.history-item{background:#21262d; padding:8px 12px; border-radius:6px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center; font-size:12px}
+		.history-date{color:#58a6ff; font-weight:bold}
+		.history-stats{display:flex; gap:12px; font-size:11px}
+    
+		.footer{text-align:center; margin-top:16px; opacity:0.7; font-size:12px; flex-shrink:0}
+		.github-link{color:#58a6ff; text-decoration:none}
+		.github-link:hover{text-decoration:underline}
+    
+		.loading{text-align:center; padding:20px; opacity:0.7; font-size:14px}
+    
+		/* Scrollbar personalizado */
+		.history-scroll::-webkit-scrollbar{width:6px}
+		.history-scroll::-webkit-scrollbar-track{background:#161b22; border-radius:3px}
+		.history-scroll::-webkit-scrollbar-thumb{background:#30363d; border-radius:3px}
+		.history-scroll::-webkit-scrollbar-thumb:hover{background:#58a6ff}
+	</style>
+
+	<!-- MediaPipe Face Mesh & drawing utils -->
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" onload="console.log('✅ Camera utils cargado')" onerror="console.error('❌ Error cargando camera utils')"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" onload="console.log('✅ Drawing utils cargado')" onerror="console.error('❌ Error cargando drawing utils')"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" onload="console.log('✅ Face mesh cargado')" onerror="console.error('❌ Error cargando face mesh')"></script>
+	<!-- OpenCV.js (opcional, solo para filtro gris de ejemplo) -->
+	<script async src="https://docs.opencv.org/4.x/opencv.js" onload="cvReady=true;console.log('✅ OpenCV cargado')" onerror="console.error('❌ Error cargando OpenCV')"></script>
+	<script>var cvReady=false;</script>
+  
+	<!-- Configuración y API para conectar con el backend -->
+	<script src="frontend/app-config.js" onload="console.log('✅ Configuración cargada')" onerror="console.error('❌ Error cargando app-config.js')"></script>
+	<script src="frontend/api/gestos.js" onload="console.log('✅ Gestos.js cargado')" onerror="console.error('❌ Error cargando gestos.js')"></script>
+	<script src="frontend/simple-camera-test.js" onload="console.log('✅ Simple camera test cargado')" onerror="console.error('❌ Error cargando simple-camera-test.js')"></script>
+	<script src="frontend/detector.js" onload="console.log('✅ Detector.js cargado')" onerror="console.error('❌ Error cargando detector.js')"></script>
+</head>
+<body>
+<div class="container">
+	<div class="header">
+		<h1>🎭 Detector de Expresiones Faciales</h1>
+	</div>
+
+	<div class="nav-tabs">
+		<div class="nav-tab active" onclick="showTab('detector')">🎥 Detector</div>
+		<div class="nav-tab" onclick="showTab('estadisticas')">📊 Estadísticas</div>
+		<div class="nav-tab" onclick="showTab('historial')">📅 Historial</div>
+	</div>
+
+	<!-- TAB: DETECTOR -->
+	<div id="detector" class="tab-content active">
+		<div class="detector-layout">
+			<div class="cameras-row">
+				<div class="video-card">
+					<video id="video" playsinline></video>
+					<div id="status">Inicializando cámara…</div>
+					<button id="init-camera-btn" style="display:none; margin-top:8px; padding:8px 16px; background:#58a6ff; color:#0b0f14; border:none; border-radius:4px; cursor:pointer;" onclick="initCameraManually()">🎥 Iniciar Detector</button>
+				</div>
+				<div class="canvas-card">
+					<canvas id="canvasOutput" width="400" height="350"></canvas>
+				</div>
+			</div>
+			<div class="stats-panel">
+				<div class="stat-title">📊 Contadores</div>
+				<div class="kpi">🔄 Transiciones Parpadeo: <b id="parpadeo-counter">0</b></div>
+				<div class="kpi">↗️ Cerrados: <b id="parpadeos-cerrados-counter">0</b></div>
+				<div class="kpi">↘️ Abiertos: <b id="parpadeos-abiertos-counter">0</b></div>
+				<hr style="border:1px solid #30363d; margin:8px 0">
+				<div class="kpi">🔄 Transiciones Cejas: <b id="ceja-counter">0</b></div>
+				<div class="kpi">↗️ Arqueadas: <b id="cejas-arqueadas-counter">0</b></div>
+				<div class="kpi">↘️ Normales: <b id="cejas-normales-counter">0</b></div>
+				<hr style="border:1px solid #30363d; margin:8px 0">
+				<div class="kpi">🔄 Transiciones Boca: <b id="boca-counter">0</b></div>
+				<div class="kpi">↗️ Abierta: <b id="boca-abierta-counter">0</b></div>
+				<div class="kpi">↘️ Cerrada: <b id="boca-cerrada-counter">0</b></div>
+				<hr style="border:1px solid #30363d; margin:8px 0">
+				<div class="kpi">Último: <b id="ultimo-status">Iniciando...</b></div>
+			</div>
+		</div>
+	</div>
+
+	<!-- TAB: ESTADÍSTICAS -->
+	<div id="estadisticas" class="tab-content">
+		<div class="stats-grid">
+			<div class="stat-card">
+				<div class="stat-title">📊 Hoy</div>
+				<div id="stats-hoy" class="loading">Cargando...</div>
+			</div>
+			<div class="stat-card">
+				<div class="stat-title">📈 7 Días</div>
+				<div id="stats-semana" class="loading">Cargando...</div>
+			</div>
+			<div class="stat-card">
+				<div class="stat-title">📅 30 Días</div>
+				<div id="stats-mes" class="loading">Cargando...</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- TAB: HISTORIAL -->
+	<div id="historial" class="tab-content">
+		<div class="card history-container">
+			<div class="stat-title">📅 Historial por Días</div>
+			<div class="history-scroll">
+				<div id="historial-dias" class="loading">Cargando historial...</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="footer">
+		<p>🚀 <a href="https://github.com/Jeztorres/detector-expresiones-app" class="github-link">Ver en GitHub</a></p>
+	</div>
+</div>
+
+<script>
+    // ======= NAVEGACIÓN DE PESTAÑAS =======
+    function showTab(tabName) {
+      // Ocultar todas las pestañas y quitar activo en tabs
+      const tabContents = document.querySelectorAll('.tab-content');
+      const navTabs = document.querySelectorAll('.nav-tab');
+      tabContents.forEach(tab => tab.classList.remove('active'));
+      navTabs.forEach(tab => tab.classList.remove('active'));
+
+      // Mostrar pestaña seleccionada
+      const content = document.getElementById(tabName);
+      if (content) content.classList.add('active');
+
+      // Determinar el elemento de navegación clickeado de manera segura
+      let clickedEl = null;
+      try {
+        if (typeof event !== 'undefined' && event) {
+          clickedEl = event.currentTarget || event.target || null;
+        }
+      } catch (_) { /* noop */ }
+      if (!clickedEl) {
+        // Fallback: buscar el .nav-tab cuyo onclick contiene el tabName
+        clickedEl = Array.from(navTabs).find(el => {
+          const on = el.getAttribute('onclick') || '';
+          return on.includes(`showTab('${tabName}')`);
+        }) || null;
+      }
+      if (clickedEl) clickedEl.classList.add('active');
+
+      // Cargar datos según la pestaña
+      if (tabName === 'estadisticas') {
+        cargarEstadisticas();
+      } else if (tabName === 'historial') {
+        cargarHistorial();
+      }
+    }
+
+    // --- FUNCIÓN PARA FECHAS LOCALES ---
+    function obtenerFechaLocal() {
+      const ahora = new Date();
+      const año = ahora.getFullYear();
+      const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+      const día = String(ahora.getDate()).padStart(2, '0');
+      const fechaLocal = `${año}-${mes}-${día}`;
+      return fechaLocal;
+    }
+
+    function obtenerFechaLocalHace(dias) {
+      const ahora = new Date();
+      ahora.setDate(ahora.getDate() - dias);
+      const año = ahora.getFullYear();
+      const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+      const día = String(ahora.getDate()).padStart(2, '0');
+      return `${año}-${mes}-${día}`;
+    }
+
+    // --- UTILIDADES DE NORMALIZACIÓN ---
+    function normalizarNumeroEntrada(valor) {
+      if (valor === null || valor === undefined) {
+        return 0;
+      }
+      if (typeof valor === 'number') {
+        return Number.isFinite(valor) ? valor : 0;
+      }
+      const numero = Number(valor);
+      return Number.isFinite(numero) ? numero : 0;
+    }
+
+    function extraerCantidad(item) {
+      if (!item || typeof item !== 'object') {
+        return 0;
+      }
+
+      const clavesPreferidas = [
+        'cantidad',
+        'total',
+        'conteo',
+        'total_cambios',
+        'total_transiciones',
+        'total_eventos',
+        'total_gestos',
+        'valor',
+        'count',
+        'sumatoria'
+      ];
+
+      for (const clave of clavesPreferidas) {
+        if (item[clave] !== undefined && item[clave] !== null) {
+          return normalizarNumeroEntrada(item[clave]);
+        }
+      }
+
+      let suma = 0;
+      for (const [clave, valor] of Object.entries(item)) {
+        const claveLower = clave.toLowerCase();
+        if (
+          claveLower.includes('fecha') ||
+          claveLower.includes('hora') ||
+          claveLower.includes('estado') ||
+          claveLower.includes('tipo') ||
+          claveLower.includes('descripcion') ||
+          claveLower.includes('detalle') ||
+          claveLower.endsWith('id')
+        ) {
+          continue;
+        }
+
+        const numero = normalizarNumeroEntrada(valor);
+        if (numero !== 0 || (typeof valor === 'number' && valor === 0)) {
+          suma += numero;
+        }
+      }
+      return suma;
+    }
+
+    function sumarCantidad(dataset) {
+      console.log('🔢 sumarCantidad llamado con:', dataset);
+      if (Array.isArray(dataset)) {
+        const result = dataset.reduce((acum, item) => {
+          const extracted = extraerCantidad(item);
+          console.log('🔢 Item procesado:', item, '->', extracted);
+          return acum + extracted;
+        }, 0);
+        console.log('🔢 Resultado array:', result);
+        return result;
+      }
+      if (dataset && typeof dataset === 'object') {
+        const result = extraerCantidad(dataset);
+        console.log('🔢 Resultado objeto:', result);
+        return result;
+      }
+      const result = normalizarNumeroEntrada(dataset);
+      console.log('🔢 Resultado valor:', result);
+      return result;
+    }
+
+    // ======= ESTADÍSTICAS =======
+    async function cargarEstadisticas() {
+      try {
+        console.log('📊 Cargando estadísticas desde MySQL...');
+        document.getElementById('stats-hoy').innerHTML = '<div class="loading">Cargando estadísticas...</div>';
+        document.getElementById('stats-semana').innerHTML = '<div class="loading">Cargando estadísticas...</div>';
+        document.getElementById('stats-mes').innerHTML = '<div class="loading">Cargando estadísticas...</div>';
+        
+        // Estadísticas de hoy usando la nueva API
+        console.log('📊 Consultando estadísticas de hoy...');
+        const statsHoy = await Promise.all([
+          window.GestosAPI.getStatsToday('parpadeo'),
+          window.GestosAPI.getStatsToday('cejas'),
+          window.GestosAPI.getStatsToday('boca')
+        ]);
+        
+        console.log('📊 Estadísticas de hoy recibidas:', statsHoy);
+        
+        const parpadeoHoy = sumarCantidad(statsHoy[0]);
+        const cejasHoy = sumarCantidad(statsHoy[1]);
+        const bocaHoy = sumarCantidad(statsHoy[2]);
+        
+        console.log('📊 Valores calculados:', { parpadeoHoy, cejasHoy, bocaHoy });
+        
+        document.getElementById('stats-hoy').innerHTML = `
+          <div>👁️ Parpadeos: <span class="stat-number">${parpadeoHoy}</span></div>
+          <div>🤨 Cejas: <span class="stat-number">${cejasHoy}</span></div>
+          <div>👄 Boca: <span class="stat-number">${bocaHoy}</span></div>
+          <div style="margin-top:8px; font-size:11px; opacity:0.7">Actualizado: ${new Date().toLocaleTimeString()}</div>
+        `;
+        
+        // Estadísticas de 7 días usando la nueva API
+        console.log('📊 Consultando estadísticas de 7 días...');
+        const stats7dias = await Promise.all([
+          window.GestosAPI.getStatsLast7('parpadeo'),
+          window.GestosAPI.getStatsLast7('cejas'),
+          window.GestosAPI.getStatsLast7('boca')
+        ]);
+        
+        const parpadeo7dias = sumarCantidad(stats7dias[0]);
+        const cejas7dias = sumarCantidad(stats7dias[1]);
+        const boca7dias = sumarCantidad(stats7dias[2]);
+        
+        document.getElementById('stats-semana').innerHTML = `
+          <div>👁️ Parpadeos: <span class="stat-number">${parpadeo7dias}</span></div>
+          <div>🤨 Cejas: <span class="stat-number">${cejas7dias}</span></div>
+          <div>👄 Boca: <span class="stat-number">${boca7dias}</span></div>
+        `;
+        
+        // Estadísticas de 30 días
+        console.log('📊 Consultando estadísticas de 30 días...');
+        const stats30 = await Promise.all([
+          window.GestosAPI.getStatsLast30('parpadeo'),
+          window.GestosAPI.getStatsLast30('cejas'),
+          window.GestosAPI.getStatsLast30('boca')
+        ]);
+        
+        const parpadeo30dias = sumarCantidad(stats30[0]);
+        const cejas30dias = sumarCantidad(stats30[1]);
+        const boca30dias = sumarCantidad(stats30[2]);
+        
+        document.getElementById('stats-mes').innerHTML = `
+          <div>👁️ Parpadeos: <span class="stat-number">${parpadeo30dias}</span></div>
+          <div>🤨 Cejas: <span class="stat-number">${cejas30dias}</span></div>
+          <div>👄 Boca: <span class="stat-number">${boca30dias}</span></div>
+        `;
+        
+        console.log(`✅ Estadísticas actualizadas - Hoy: ${parpadeoHoy + cejasHoy + bocaHoy} gestos`);
+        
+      } catch (error) {
+        console.error('❌ Error cargando estadísticas:', error);
+        document.getElementById('stats-hoy').innerHTML = '❌ Error conectando a MySQL';
+        document.getElementById('stats-semana').innerHTML = '❌ Error conectando a MySQL';
+        document.getElementById('stats-mes').innerHTML = '❌ Error conectando a MySQL';
+      }
+    }
+
+    function normalizarFechaValor(valor) {
+      if (!valor) {
+        return null;
+      }
+
+      if (valor instanceof Date) {
+        return valor.toISOString().split('T')[0];
+      }
+
+      if (typeof valor === 'string') {
+        const texto = valor.trim();
+        if (!texto) {
+          return null;
+        }
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+          return texto;
+        }
+
+        const fechaParseada = new Date(texto);
+        if (!Number.isNaN(fechaParseada.valueOf())) {
+          return fechaParseada.toISOString().split('T')[0];
+        }
+
+        return texto;
+      }
+
+      const fechaParseada = new Date(valor);
+      if (!Number.isNaN(fechaParseada.valueOf())) {
+        return fechaParseada.toISOString().split('T')[0];
+      }
+
+      return null;
+    }
+
+    function obtenerFechaRegistro(item) {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const clavesPreferidas = ['fecha', 'dia', 'fecha_evento', 'fecha_registro', 'fecha_historial'];
+      for (const clave of clavesPreferidas) {
+        if (item[clave]) {
+          const fechaNormalizada = normalizarFechaValor(item[clave]);
+          if (fechaNormalizada) {
+            return fechaNormalizada;
+          }
+        }
+      }
+
+      const claveDinamica = Object.keys(item).find(key => key.toLowerCase().includes('fecha'));
+      if (claveDinamica && item[claveDinamica]) {
+        return normalizarFechaValor(item[claveDinamica]);
+      }
+
+      return null;
+    }
+
+    async function cargarHistorial() {
+      try {
+        console.log('📅 Cargando historial desde MySQL...');
+        document.getElementById('historial-dias').innerHTML = '<div class="loading">Cargando historial...</div>';
+        
+        // Usar la nueva API de historial diario con paginación
+        const historial = await Promise.all([
+          window.GestosAPI.getDailyHistory('parpadeo', 1, 30),
+          window.GestosAPI.getDailyHistory('cejas', 1, 30),
+          window.GestosAPI.getDailyHistory('boca', 1, 30)
+        ]);
+        
+        // Agrupar por fecha
+        const fechas = {};
+        
+        historial.forEach((response, index) => {
+          const tipo = ['parpadeo', 'cejas', 'boca'][index];
+          const tipoStats = response?.data || [];
+          const listaNormalizada = Array.isArray(tipoStats) ? tipoStats : (tipoStats ? [tipoStats] : []);
+
+          listaNormalizada.forEach(stat => {
+            const fechaRegistro = obtenerFechaRegistro(stat);
+            if (!fechaRegistro) {
+              return;
+            }
+
+            if (!fechas[fechaRegistro]) {
+              fechas[fechaRegistro] = { parpadeo: 0, cejas: 0, boca: 0 };
+            }
+
+            fechas[fechaRegistro][tipo] += extraerCantidad(stat);
+          });
+        });
+
+        // Mostrar historial
+        const fechasOrdenadas = Object.keys(fechas).sort((a, b) => new Date(b) - new Date(a));
+        
+        if (fechasOrdenadas.length === 0) {
+          document.getElementById('historial-dias').innerHTML = '<div class="loading">No hay datos disponibles en MySQL</div>';
+          return;
+        }
+        
+        const hoy = obtenerFechaLocal();
+        const historialHTML = fechasOrdenadas.map(fecha => {
+          const stats = fechas[fecha];
+          const total = stats.parpadeo + stats.cejas + stats.boca;
+          const fechaObj = new Date(`${fecha}T00:00:00`);
+          const esHoy = fecha === hoy;
+          
+          return `
+            <div class="history-item" style="${esHoy ? 'border-left: 3px solid #58a6ff;' : ''}">
+              <div class="history-date">
+                ${Number.isNaN(fechaObj.valueOf()) ? fecha : fechaObj.toLocaleDateString('es-ES')}
+                ${esHoy ? '<span style="color:#58a6ff; font-size:10px;"> (HOY)</span>' : ''}
+              </div>
+              <div class="history-stats">
+                <span>👁️ ${stats.parpadeo}</span>
+                <span>🤨 ${stats.cejas}</span>
+                <span>👄 ${stats.boca}</span>
+                <span style="color:#58a6ff; font-weight:bold;">Total: ${total}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        
+        document.getElementById('historial-dias').innerHTML = `
+          <div style="margin-bottom:8px; font-size:11px; opacity:0.7; text-align:center;">
+            Últimos ${fechasOrdenadas.length} días con actividad - Actualizado: ${new Date().toLocaleTimeString()}
+          </div>
+          ${historialHTML}
+        `;
+        
+        console.log(`✅ Historial cargado - ${fechasOrdenadas.length} días con datos`);
+        
+      } catch (error) {
+        console.error('❌ Error cargando historial:', error);
+        document.getElementById('historial-dias').innerHTML = '❌ Error conectando a MySQL para historial';
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      console.log("🚀 DOM cargado, aplicación lista");
+    });
+</script>
+
+</body>
+</html>
+
+</html>
+
+
