@@ -155,3 +155,37 @@ class GestoService:
         except Exception as e:
             print(f"❌ Error en el servicio al obtener historial diario: {e}")
             return {'data': [], 'page': page, 'limit': limit, 'total_pages': 0}
+
+    def get_day_details(self, tipo_gesto: str, fecha: str):
+        """
+        Obtiene todos los registros detallados de un día específico.
+        
+        Args:
+            tipo_gesto (str): El tipo de gesto a consultar.
+            fecha (str): La fecha en formato 'YYYY-MM-DD'.
+            
+        Returns:
+            dict: Diccionario con los detalles del día.
+        """
+        try:
+            # Convierte la fecha de string a objeto date
+            target_date = date.fromisoformat(fecha)
+            
+            # Obtiene los registros detallados del repositorio
+            details = self.gesto_repository.get_day_details(tipo_gesto, target_date)
+            
+            return {
+                'fecha': fecha,
+                'tipo_gesto': tipo_gesto,
+                'total_registros': len(details),
+                'registros': details
+            }
+        except Exception as e:
+            print(f"❌ Error en el servicio al obtener detalles del día: {e}")
+            return {
+                'fecha': fecha,
+                'tipo_gesto': tipo_gesto,
+                'total_registros': 0,
+                'registros': [],
+                'error': str(e)
+            }

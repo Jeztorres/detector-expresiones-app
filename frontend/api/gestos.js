@@ -55,6 +55,12 @@
     catch(e){ console.error(`❌ Error al obtener historial diario: ${e.message}`); return { data: [], page: 1, limit: 30, total_pages: 0 }; }
   }
 
+  // Nueva función para obtener detalles de un día específico
+  async function getDayDetails(tipo, fecha){
+    try{ return await request(`/estadisticas/${tipo}/detalle/${fecha}`); }
+    catch(e){ console.error(`❌ Error al obtener detalles del día: ${e.message}`); return { registros: [], total_registros: 0, error: e.message }; }
+  }
+
   async function getServerDate(){
     try{
       const resp = await fetch(`${backendBaseUrl}/debug/fecha`, { mode: 'cors' });
@@ -71,6 +77,7 @@
     getStatsLast7,
     getStatsLast30, 
     getDailyHistory,
+    getDayDetails,
     getServerDate, 
     getBackendBaseUrl: () => backendBaseUrl 
   };

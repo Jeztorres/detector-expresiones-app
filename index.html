@@ -56,6 +56,118 @@
 		.history-scroll::-webkit-scrollbar-track{background:#161b22; border-radius:3px}
 		.history-scroll::-webkit-scrollbar-thumb{background:#30363d; border-radius:3px}
 		.history-scroll::-webkit-scrollbar-thumb:hover{background:#58a6ff}
+
+		/* Estilos del modal */
+		.modal {
+			position: fixed;
+			z-index: 1000;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0,0,0,0.8);
+			backdrop-filter: blur(5px);
+		}
+
+		.modal-content {
+			background-color: #0d1117;
+			margin: 5% auto;
+			padding: 0;
+			border: 1px solid #30363d;
+			border-radius: 12px;
+			width: 90%;
+			max-width: 800px;
+			max-height: 80vh;
+			overflow: hidden;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+		}
+
+		.modal-header {
+			background: linear-gradient(135deg, #1f2937, #374151);
+			padding: 20px;
+			border-bottom: 1px solid #30363d;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.modal-header h3 {
+			margin: 0;
+			color: #e8eef5;
+			font-size: 18px;
+		}
+
+		.close {
+			color: #8b949e;
+			font-size: 28px;
+			font-weight: bold;
+			cursor: pointer;
+			transition: color 0.3s;
+		}
+
+		.close:hover {
+			color: #f85149;
+		}
+
+		.modal-body {
+			padding: 20px;
+			max-height: 60vh;
+			overflow-y: auto;
+		}
+
+		.detalle-tabla {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 10px;
+		}
+
+		.detalle-tabla th,
+		.detalle-tabla td {
+			padding: 12px;
+			text-align: left;
+			border-bottom: 1px solid #30363d;
+		}
+
+		.detalle-tabla th {
+			background-color: #21262d;
+			color: #58a6ff;
+			font-weight: 600;
+			position: sticky;
+			top: 0;
+		}
+
+		.detalle-tabla td {
+			color: #e8eef5;
+		}
+
+		.detalle-tabla tr:hover {
+			background-color: #161b22;
+		}
+
+		.estado-badge {
+			padding: 4px 8px;
+			border-radius: 6px;
+			font-size: 12px;
+			font-weight: 500;
+		}
+
+		.estado-abierta { background-color: #238636; color: white; }
+		.estado-cerrada { background-color: #da3633; color: white; }
+		.estado-abierto { background-color: #238636; color: white; }
+		.estado-cerrado { background-color: #da3633; color: white; }
+		.estado-levantadas { background-color: #1f6feb; color: white; }
+		.estado-normales { background-color: #656d76; color: white; }
+
+		.history-day {
+			cursor: pointer;
+			transition: all 0.3s ease;
+		}
+
+		.history-day:hover {
+			background-color: #21262d !important;
+			transform: translateY(-2px);
+			box-shadow: 0 4px 12px rgba(88, 166, 255, 0.2);
+		}
 	</style>
 
 	<!-- MediaPipe Face Mesh & drawing utils -->
@@ -148,6 +260,21 @@
 			<div class="stat-title">📅 Historial por Días</div>
 			<div class="history-scroll">
 				<div id="historial-dias" class="loading">Cargando historial...</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Modal para detalles del día -->
+	<div id="modal-detalles" class="modal" style="display: none;">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 id="modal-titulo">Detalles del día</h3>
+				<span class="close" onclick="cerrarModal()">&times;</span>
+			</div>
+			<div class="modal-body">
+				<div id="modal-contenido">
+					<div class="loading">Cargando detalles...</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -476,7 +603,7 @@
           const esHoy = fecha === hoy;
           
           return `
-            <div class="history-item" style="${esHoy ? 'border-left: 3px solid #58a6ff;' : ''}">
+            <div class="history-item history-day" style="${esHoy ? 'border-left: 3px solid #58a6ff;' : ''}" onclick="mostrarDetallesDia('${fecha}')">
               <div class="history-date">
                 ${Number.isNaN(fechaObj.valueOf()) ? fecha : fechaObj.toLocaleDateString('es-ES')}
                 ${esHoy ? '<span style="color:#58a6ff; font-size:10px;"> (HOY)</span>' : ''}
@@ -503,6 +630,101 @@
       } catch (error) {
         console.error('❌ Error cargando historial:', error);
         document.getElementById('historial-dias').innerHTML = '❌ Error conectando a MySQL para historial';
+      }
+    }
+
+    // Función para mostrar detalles del día
+    async function mostrarDetallesDia(fecha) {
+      try {
+        console.log(`📅 Mostrando detalles para la fecha: ${fecha}`);
+        
+        // Mostrar modal
+        document.getElementById('modal-detalles').style.display = 'block';
+        document.getElementById('modal-titulo').textContent = `Detalles del ${new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES')}`;
+        document.getElementById('modal-contenido').innerHTML = '<div class="loading">Cargando detalles...</div>';
+        
+        // Obtener detalles para cada tipo de gesto
+        const detalles = await Promise.all([
+          window.GestosAPI.getDayDetails('parpadeo', fecha),
+          window.GestosAPI.getDayDetails('cejas', fecha),
+          window.GestosAPI.getDayDetails('boca', fecha)
+        ]);
+        
+        // Combinar todos los registros
+        let todosLosRegistros = [];
+        
+        detalles.forEach((response, index) => {
+          const tipo = ['parpadeo', 'cejas', 'boca'][index];
+          const tipoEmoji = ['👁️', '🤨', '👄'][index];
+          
+          if (response && response.registros && Array.isArray(response.registros)) {
+            response.registros.forEach(registro => {
+              todosLosRegistros.push({
+                ...registro,
+                tipo_gesto: tipo,
+                emoji: tipoEmoji
+              });
+            });
+          }
+        });
+        
+        // Ordenar por fecha y hora
+        todosLosRegistros.sort((a, b) => {
+          const fechaA = new Date(`${a.fecha}T${a.hora}`);
+          const fechaB = new Date(`${b.fecha}T${b.hora}`);
+          return fechaB - fechaA; // Más reciente primero
+        });
+        
+        // Generar HTML de la tabla
+        if (todosLosRegistros.length === 0) {
+          document.getElementById('modal-contenido').innerHTML = '<p style="text-align: center; color: #8b949e;">No hay registros para este día.</p>';
+          return;
+        }
+        
+        const tablaHTML = `
+          <div style="margin-bottom: 15px; color: #58a6ff; font-weight: 600;">
+            Total de registros: ${todosLosRegistros.length}
+          </div>
+          <table class="detalle-tabla">
+            <thead>
+              <tr>
+                <th>Gesto</th>
+                <th>Estado</th>
+                <th>Hora</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${todosLosRegistros.map(registro => `
+                <tr>
+                  <td>${registro.emoji} ${registro.tipo_gesto.charAt(0).toUpperCase() + registro.tipo_gesto.slice(1)}</td>
+                  <td><span class="estado-badge estado-${registro.estado.toLowerCase()}">${registro.estado}</span></td>
+                  <td>${registro.hora}</td>
+                  <td>${new Date(registro.fecha + 'T00:00:00').toLocaleDateString('es-ES')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        
+        document.getElementById('modal-contenido').innerHTML = tablaHTML;
+        
+      } catch (error) {
+        console.error('❌ Error cargando detalles del día:', error);
+        document.getElementById('modal-contenido').innerHTML = '<p style="text-align: center; color: #f85149;">Error cargando los detalles del día.</p>';
+      }
+    }
+
+    // Función para cerrar el modal
+    function cerrarModal() {
+      document.getElementById('modal-detalles').style.display = 'none';
+    }
+
+    // Cerrar modal al hacer click fuera de él
+    window.onclick = function(event) {
+      const modal = document.getElementById('modal-detalles');
+      if (event.target === modal) {
+        cerrarModal();
       }
     }
 

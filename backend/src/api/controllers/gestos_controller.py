@@ -84,6 +84,18 @@ def get_daily_history(tipo_gesto):
     stats = gesto_service.get_daily_history(tipo_gesto, page, limit)
     return jsonify(stats), 200
 
+@gestos_controller.route('/estadisticas/<string:tipo_gesto>/detalle/<string:fecha>', methods=['GET'])
+def get_day_details(tipo_gesto, fecha):
+    """
+    Endpoint para obtener detalles específicos de un día.
+    Retorna todos los registros de ese día con hora y estado.
+    """
+    try:
+        details = gesto_service.get_day_details(tipo_gesto, fecha)
+        return jsonify(details), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # Endpoint de prueba para verificar que el backend está funcionando.
 @gestos_controller.route('/health', methods=['GET'])
 def health_check():

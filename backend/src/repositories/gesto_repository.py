@@ -150,6 +150,68 @@ class GestoRepository:
 
         return []
 
+    def get_day_details(self, tipo_gesto: str, target_date: date):
+        """
+        Obtiene todos los registros detallados de un día específico.
+        
+        Args:
+            tipo_gesto (str): El tipo de gesto a consultar.
+            target_date (date): La fecha objetivo.
+            
+        Returns:
+            list: Lista de registros con hora, estado y otros detalles.
+        """
+        connection = None
+        cursor = None
+        
+        try:
+            # Obtener la tabla correspondiente al tipo de gesto
+            if tipo_gesto == 'parpadeo':
+                tabla = 'estados_parpadeo'
+            elif tipo_gesto == 'cejas':
+                tabla = 'estados_ceja'
+            elif tipo_gesto == 'boca':
+                tabla = 'estados_boca'
+            else:
+                raise ValueError(f"Tipo de gesto no válido: {tipo_gesto}")
+            
+            connection = Database.get_connection()
+            cursor = connection.cursor(dictionary=True)
+            
+            # Query para obtener todos los registros del día específico
+            query = f"""
+                SELECT 
+                    id,
+                    estado,
+                    fecha_registro,
+                    TIME(fecha_registro) as hora,
+                    DATE(fecha_registro) as fecha
+                FROM {tabla}
+                WHERE DATE(fecha_registro) = %s
+                ORDER BY fecha_registro ASC
+            """
+            
+            cursor.execute(query, (target_date,))
+            rows = cursor.fetchall()
+            
+            # Normalizar los resultados
+            return self._normalize_rows(rows)
+            
+        except Exception as e:
+            print(f"❌ Error en el repositorio al obtener detalles del día: {e}")
+            return []
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+            if connection:
+                try:
+                    connection.close()
+                except:
+                    pass
+
     def get_stats_today(self, tipo_gesto: str):
         """
         Obtiene estadísticas para el día de hoy usando stored procedures.
