@@ -1,5 +1,5 @@
 from src.config.database import Database
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 class GestoRepository:
@@ -42,6 +42,13 @@ class GestoRepository:
             for key, value in row.items():
                 if isinstance(value, (date, datetime)):
                     normalizado[key] = value.isoformat()
+                elif isinstance(value, timedelta):
+                    # Convertir timedelta a string en formato HH:MM:SS
+                    total_seconds = int(value.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    seconds = total_seconds % 60
+                    normalizado[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                 elif isinstance(value, Decimal):
                     normalizado[key] = int(value)
                 else:
@@ -167,11 +174,11 @@ class GestoRepository:
         try:
             # Obtener la tabla correspondiente al tipo de gesto
             if tipo_gesto == 'parpadeo':
-                tabla = 'estados_parpadeo'
+                tabla = 'parpadeos_hist'
             elif tipo_gesto == 'cejas':
-                tabla = 'estados_ceja'
+                tabla = 'cejas_hist'
             elif tipo_gesto == 'boca':
-                tabla = 'estados_boca'
+                tabla = 'boca_hist'
             else:
                 raise ValueError(f"Tipo de gesto no válido: {tipo_gesto}")
             
@@ -183,12 +190,12 @@ class GestoRepository:
                 SELECT 
                     id,
                     estado,
-                    fecha_registro,
-                    TIME(fecha_registro) as hora,
-                    DATE(fecha_registro) as fecha
+                    fecha_hora,
+                    TIME(fecha_hora) as hora,
+                    DATE(fecha_hora) as fecha
                 FROM {tabla}
-                WHERE DATE(fecha_registro) = %s
-                ORDER BY fecha_registro ASC
+                WHERE DATE(fecha_hora) = %s
+                ORDER BY fecha_hora ASC
             """
             
             cursor.execute(query, (target_date,))
